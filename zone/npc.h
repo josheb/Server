@@ -66,6 +66,13 @@ struct AISpells_Struct {
 	int16	resist_adjust;
 };
 
+struct AISpellsEffects_Struct {
+	uint16	spelleffectid;		
+	int32	base;		
+	int32	limit;	
+	int32	max;	
+};
+
 class AA_SwarmPetInfo;
 
 class NPC : public Mob
@@ -79,8 +86,8 @@ public:
 	virtual ~NPC();
 
 	//abstract virtual function implementations requird by base abstract class
-	virtual bool Death(Mob* killerMob, int32 damage, uint16 spell_id, SkillType attack_skill);
-	virtual void Damage(Mob* from, int32 damage, uint16 spell_id, SkillType attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false);
+	virtual bool Death(Mob* killerMob, int32 damage, uint16 spell_id, SkillUseTypes attack_skill);
+	virtual void Damage(Mob* from, int32 damage, uint16 spell_id, SkillUseTypes attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false);
 	virtual bool Attack(Mob* other, int Hand = 13, bool FromRiposte = false, bool IsStrikethrough = false,
 		bool IsFromSpell = false, ExtraAttackOptions *opts = nullptr);
 	virtual bool HasRaid() { return false; }
@@ -96,8 +103,11 @@ public:
 	virtual void	AI_Stop();
 	void			AI_DoMovement();
 	bool			AI_AddNPCSpells(uint32 iDBSpellsID);
+	bool			AI_AddNPCSpellsEffects(uint32 iDBSpellsEffectsID);
 	virtual bool	AI_EngagedCastCheck();
 	bool			AI_HasSpells() { return HasAISpell; }
+	bool			AI_HasSpellsEffects() { return HasAISpellEffects; }
+	void			ApplyAISpellEffects(StatBonuses* newbon);
 
 	virtual bool	AI_PursueCastCheck();
 	virtual bool	AI_IdleCastCheck();
@@ -109,15 +119,15 @@ public:
 	void CalcNPCDamage();
 
 
-	int32 GetActSpellDamage(uint16 spell_id, int32 value);
-	int32 GetActSpellHealing(uint16 spell_id, int32 value);
+	int32 GetActSpellDamage(uint16 spell_id, int32 value, Mob* target = nullptr);
+	int32 GetActSpellHealing(uint16 spell_id, int32 value, Mob* target = nullptr);
 	inline void SetSpellFocusDMG(int32 NewSpellFocusDMG) {SpellFocusDMG = NewSpellFocusDMG;}
 	inline void SetSpellFocusHeal(int32 NewSpellFocusHeal) {SpellFocusHeal = NewSpellFocusHeal;}
 	int32 SpellFocusDMG;
 	int32 SpellFocusHeal;
 
 	virtual void SetTarget(Mob* mob);
-	virtual uint16 GetSkill(SkillType skill_num) const { if (skill_num <= HIGHEST_SKILL) { return skills[skill_num]; } return 0; }
+	virtual uint16 GetSkill(SkillUseTypes skill_num) const { if (skill_num <= HIGHEST_SKILL) { return skills[skill_num]; } return 0; }
 
 	void CalcItemBonuses(StatBonuses *newbon);
 	virtual void CalcBonuses();
@@ -209,6 +219,10 @@ public:
 	void SetSecSkill(uint8 skill_type)	{ sec_melee_type = skill_type; }
 
 	uint32	MerchantType;
+	bool	merchant_open;
+	inline void	MerchantOpenShop() { merchant_open = true; }
+	inline void	MerchantCloseShop() { merchant_open = false; }
+	inline bool	IsMerchantOpen() { return merchant_open; }
 	void	Depop(bool StartSpawnTimer = false);
 	void	Stun(int duration);
 	void	UnStun();
@@ -229,7 +243,7 @@ public:
 
 	uint32	GetMaxDMG() const {return max_dmg;}
 	uint32	GetMinDMG() const {return min_dmg;}
-	float	GetSlowMitigation() const {return slow_mitigation;}
+	int16	GetSlowMitigation() const {return slow_mitigation;}
 	float	GetAttackSpeed() const {return attack_speed;}
 	bool	IsAnimal() const { return(bodytype == BT_Animal); }
 	uint16	GetPetSpellID() const {return pet_spell_id;}
@@ -241,6 +255,7 @@ public:
 	void	AddLootDrop(const Item_Struct*dbitem, ItemList* itemlistconst, int16 charges, uint8 minlevel, uint8 maxlevel, bool equipit, bool wearchange = false);
 	virtual void DoClassAttacks(Mob *target);
 	void	CheckSignal();
+	inline bool IsTargetableWithHotkey() const { return no_target_hotkey; }
 
 	//waypoint crap
 	int					GetMaxWp() const { return max_wp; }
@@ -265,8 +280,8 @@ public:
 	inline bool			IsGuarding() const { return(guard_heading != 0); }
 	void				SaveGuardSpotCharm();
 	void				RestoreGuardSpotCharm();
-	void				AI_SetRoambox(float iDist, float iRoamDist, uint32 iDelay = 2500);
-	void				AI_SetRoambox(float iDist, float iMaxX, float iMinX, float iMaxY, float iMinY, uint32 iDelay = 2500);
+	void				AI_SetRoambox(float iDist, float iRoamDist, uint32 iDelay = 2500, uint32 iMinDelay = 2500);
+	void				AI_SetRoambox(float iDist, float iMaxX, float iMinX, float iMaxY, float iMinY, uint32 iDelay = 2500, uint32 iMinDelay = 2500);
 
 	//mercenary stuff
 	void	LoadMercTypes();
@@ -284,6 +299,7 @@ public:
 
 	inline void GiveNPCTypeData(NPCType *ours) { NPCTypedata_ours = ours; }
 	inline const uint32 GetNPCSpellsID()	const { return npc_spells_id; }
+	inline const uint32 GetNPCSpellsEffectsID()	const { return npc_spells_effects_id; }
 
 	ItemList	itemlist; //kathgar - why is this public? Doing other things or I would check the code
 
@@ -334,6 +350,7 @@ public:
 
 	uint32 GetAdventureTemplate() const { return adventure_template_id; }
 	void AddSpellToNPCList(int16 iPriority, int16 iSpellID, uint16 iType, int16 iManaCost, int32 iRecastDelay, int16 iResistAdjust);
+	void AddSpellEffectToNPCList(uint16 iSpellEffectID, int32 base, int32 limit, int32 max);
 	void RemoveSpellFromNPCList(int16 spell_id);
 	Timer *GetRefaceTimer() const { return reface_timer; }
 	const uint32 GetAltCurrencyType() const { return NPCTypedata->alt_currency_type; }
@@ -352,9 +369,10 @@ public:
     uint32 	GetSpawnKillCount();
     int 	GetScore();
     void 	mod_prespawn(Spawn2 *sp);
-	int 	mod_npc_damage(int damage, SkillType skillinuse, int hand, const Item_Struct* weapon, Mob* other);
+	int 	mod_npc_damage(int damage, SkillUseTypes skillinuse, int hand, const Item_Struct* weapon, Mob* other);
 	void	mod_npc_killed_merit(Mob* c);
 	void	mod_npc_killed(Mob* oos);
+	void AISpellsList(Client *c);
 
 protected:
 
@@ -394,8 +412,11 @@ protected:
 	bool HasAISpell;
 	virtual bool AICastSpell(Mob* tar, uint8 iChance, uint16 iSpellTypes);
 	virtual bool AIDoSpellCast(uint8 i, Mob* tar, int32 mana_cost, uint32* oDontDoAgainBefore = 0);
-
-
+	
+	uint32	npc_spells_effects_id;
+	std::vector<AISpellsEffects_Struct> AIspellsEffects;
+	bool HasAISpellEffects;
+	
 	uint32	max_dmg;
 	uint32	min_dmg;
 	int32	accuracy_rating;
@@ -429,6 +450,7 @@ protected:
 	float roambox_movingto_x;
 	float roambox_movingto_y;
 	uint32 roambox_delay;
+	uint32 roambox_min_delay;
 
 	uint16	skills[HIGHEST_SKILL+1];
 	uint32	equipment[MAX_WORN_INVENTORY];	//this is an array of item IDs

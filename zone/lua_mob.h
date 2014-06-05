@@ -192,6 +192,8 @@ public:
 	void SetHate(Lua_Mob other);
 	void SetHate(Lua_Mob other, int hate);
 	void SetHate(Lua_Mob other, int hate, int damage);
+	void HalveAggro(Lua_Mob other);
+	void DoubleAggro(Lua_Mob other);
 	uint32 GetHateAmount(Lua_Mob target);
 	uint32 GetHateAmount(Lua_Mob target, bool is_damage);
 	uint32 GetDamageAmount(Lua_Mob target);
@@ -342,6 +344,16 @@ public:
 	void ProcessSpecialAbilities(std::string str);
 	void SetAppearance(int app);
 	void SetAppearance(int app, bool ignore_self);
+	void SetDestructibleObject(bool set);
+	bool IsImmuneToSpell(int spell_id, Lua_Mob caster);
+	void BuffFadeBySpellID(int spell_id);
+	void BuffFadeByEffect(int effect_id);
+	void BuffFadeByEffect(int effect_id, int skipslot);
+	void BuffFadeAll();
+	void BuffFadeBySlot(int slot);
+	void BuffFadeBySlot(int slot, bool recalc_bonuses);
+	int CanBuffStack(int spell_id, int caster_level);
+	int CanBuffStack(int spell_id, int caster_level, bool fail_if_overwrite);
 };
 
 #endif

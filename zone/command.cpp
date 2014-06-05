@@ -24,7 +24,7 @@
 	2.	Add the function in this file.
 	3.	In the command_init function you must add a call to command_add
 		for your function. If you want an alias for your command, add
-		a second call to command_add with the descriptin and access args
+		a second call to command_add with the description and access args
 		set to nullptr and 0 respectively since they aren't used when adding
 		an alias. The function pointers being equal is makes it an alias.
 		The access level you set with command_add is only a default if
@@ -55,7 +55,7 @@
 #include "worldserver.h"
 #include "masterentity.h"
 #include "map.h"
-#include "watermap.h"
+#include "water_map.h"
 #include "../common/features.h"
 #include "pathing.h"
 #include "client_logs.h"
@@ -220,6 +220,7 @@ int command_init(void) {
 		command_add("itemtest","- merth's test function",250,command_itemtest) ||
 		command_add("gassign","[id] - Assign targetted NPC to predefined wandering grid id",100,command_gassign) ||
 		command_add("ai","[factionid/spellslist/con/guard/roambox/stop/start] - Modify AI on NPC target",100,command_ai) ||
+		command_add("showspellslist","Shows spell list of targeted NPC",100,command_showspellslist) ||
 		command_add("worldshutdown","- Shut down world and all zones",200,command_worldshutdown) ||
 		command_add("sendzonespawns","- Refresh spawn list for all clients in zone",150,command_sendzonespawns) ||
 		command_add("dbspawn2","[spawngroup] [respawn] [variance] - Spawn an NPC from a predefined row in the spawn2 table",100,command_dbspawn2) ||
@@ -388,7 +389,6 @@ int command_init(void) {
 		command_add("logsql","- enable SQL logging",200,command_logsql) ||
 		command_add("bestz","- Ask map for a good Z coord for your x,y coords.",0,command_bestz) ||
 		command_add("ginfo","- get group info on target.",20,command_ginfo) ||
-		command_add("fear","- view and edit fear grids and hints",200,command_fear) ||
 		command_add("path","- view and edit pathing",200,command_path) ||
 		command_add("flags","- displays the flags of you or your target",0,command_flags) ||
 		command_add("flagedit","- Edit zone flags on your target",100,command_flagedit) ||
@@ -445,7 +445,14 @@ int command_init(void) {
 		command_add("xtargets", "Show your targets Extended Targets and optionally set how many xtargets they can have.", 250, command_xtargets) ||
 		command_add("zopp", "Troubleshooting command - Sends a fake item packet to you. No server reference is created.", 250, command_zopp) ||
 		command_add("augmentitem", "Force augments an item. Must have the augment item window open.", 250, command_augmentitem) ||
-		command_add("questerrors", "Shows quest errors.", 100, command_questerrors)
+		command_add("questerrors", "Shows quest errors.", 100, command_questerrors) ||
+		command_add("enablerecipe", "[recipe_id] - Enables a recipe using the recipe id.", 80, command_enablerecipe) ||
+		command_add("disablerecipe", "[recipe_id] - Disables a recipe using the recipe id.", 80, command_disablerecipe) ||
+		command_add("npctype_cache", "[id] or all - Clears the npc type cache for either the id or all npcs.", 250, command_npctype_cache) ||
+		command_add("merchant_open_shop", "Opens a merchants shop", 100, command_merchantopenshop) ||
+		command_add("open_shop", nullptr, 100, command_merchantopenshop) ||
+		command_add("merchant_close_shop", "Closes a merchant shop", 100, command_merchantcloseshop) ||
+		command_add("close_shop", nullptr, 100, command_merchantcloseshop)
 		)
 	{
 		command_deinit();
@@ -458,7 +465,7 @@ int command_init(void) {
 	std::map<std::string,uint8> command_settings;
 	std::map<std::string,uint8>::iterator itr;
 	database.GetCommandSettings(command_settings);
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		if ((itr=command_settings.find(cur->first))!=command_settings.end())
 		{
 			cur->second->access = itr->second;
@@ -523,7 +530,7 @@ int command_add(const char *command_string, const char *desc, int access, CmdFun
 	std::map<std::string, CommandRecord *>::iterator cur,end,del;
 	cur = commandlist.begin();
 	end = commandlist.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		if(cur->second->function == function) {
 			int r;
 			for(r = 1; r < CMDALIASES; r++) {
@@ -565,9 +572,6 @@ int command_add(const char *command_string, const char *desc, int access, CmdFun
  */
 int command_realdispatch(Client *c, const char *message)
 {
-	_ZP(command_realdispatch);
-
-
 	Seperator sep(message, ' ', 10, 100, true); // "three word argument" should be considered 1 arg
 
 	command_logcommand(c, message);
@@ -719,71 +723,6 @@ void command_sendop(Client *c,const Seperator *sep){
 	c->QueuePacket(outapp);
 	safe_delete(outapp);
 	return;
-
-	/*if(sep->arg[1][0] && sep->arg[2][0])
-	{
-		c->Message_StringID(atoi(sep->arg[1]),atoi(sep->arg[2]),sep->arg[3],sep->arg[4],sep->arg[5],sep->arg[6],sep->arg[7],sep->arg[8]);
-	}
-	else
-		c->Message(0,"type,string id, message1...");*/
-	/*
-		clientupdate lvl and such
-			uint32	level; //new level
-
-
-	*/
-
-
-	/*
-	if(sep->arg[1][0] && sep->arg[2][0]){
-		EQApplicationPacket* outapp = new EQApplicationPacket((EmuOpcode)atoi(sep->arg[1]),sizeof(GMName_Struct));
-		GMName_Struct* gms=(GMName_Struct*)outapp->pBuffer;
-		memset(outapp->pBuffer,0,outapp->size);
-		strcpy(gms->gmname,c->GetName());
-		strcpy(gms->oldname,c->GetName());
-		strcpy(gms->newname,sep->arg[3]);
-		if(sep->arg[4][0])
-			gms->badname=atoi(sep->arg[4]);
-		c->QueuePacket(outapp);
-		safe_delete(outapp);
-	}
-	*/
-	/*
-		else{
-			EQApplicationPacket* outapp = new EQApplicationPacket(121,atoi(sep->arg[2]));
-			memset(outapp->pBuffer,0,outapp->size);
-			uint8 offset=atoi(sep->arg[3]);
-			if(offset<outapp->size && sep->arg[4][0])
-				outapp->pBuffer[offset]=atoi(sep->arg[4]);
-			offset++;
-			if(offset<outapp->size && sep->arg[5][0])
-				outapp->pBuffer[offset+3]=atoi(sep->arg[5]);
-			offset++;
-			if(offset<outapp->size && sep->arg[6][0])
-				outapp->pBuffer[offset+3]=atoi(sep->arg[6]);
-			offset++;
-			if(offset<outapp->size && sep->arg[7][0])
-				outapp->pBuffer[offset]=atoi(sep->arg[7]);
-			offset++;
-			if(offset<outapp->size && sep->arg[8][0])
-				outapp->pBuffer[offset]=atoi(sep->arg[8]);
-			offset++;
-			if(offset<outapp->size && sep->arg[9][0])
-				outapp->pBuffer[offset]=atoi(sep->arg[9]);
-			c->QueuePacket(outapp);
-			safe_delete(outapp);
-		}*/
-		//c->SetStats(atoi(sep->arg[1]),atoi(sep->arg[2]));
-	//}
-		/*EQApplicationPacket* outapp = new EQApplicationPacket(atoi(sep->arg[1]), sizeof(PlayerAA_Struct));
-		memcpy(outapp->pBuffer,c->GetAAStruct(),outapp->size);
-		c->QueuePacket(outapp);
-		safe_delete(outapp);
-	}
-	else
-		c->Message(15,"Invalid opcode!");
-		*/
-
 }
 
 void command_optest(Client *c, const Seperator *sep)
@@ -824,6 +763,11 @@ void command_optest(Client *c, const Seperator *sep)
 				c->FastQueuePacket(&outapp);
 				break;
 			}
+			case 3:
+			{
+				c->SendMarqueeMessage(15, 250, 0, 500, 5000, "Some msg");
+				break;
+			}
 			default:
 			{
 				break;
@@ -842,7 +786,7 @@ void command_help(Client *c, const Seperator *sep)
 	cur = commandlist.begin();
 	end = commandlist.end();
 
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		if(sep->arg[1][0]) {
 			if(cur->first.find(sep->arg[1]) == std::string::npos) {
 				continue;
@@ -2144,21 +2088,27 @@ void command_ai(Client *c, const Seperator *sep)
 	}
 	else if (strcasecmp(sep->arg[1], "roambox") == 0) {
 		if (target && target->IsAIControlled() && target->IsNPC()) {
-			if ((sep->argnum == 6 || sep->argnum == 7) && sep->IsNumber(2) && sep->IsNumber(3) && sep->IsNumber(4) && sep->IsNumber(5) && sep->IsNumber(6)) {
+			if ((sep->argnum == 6 || sep->argnum == 7 || sep->argnum == 8) && sep->IsNumber(2) && sep->IsNumber(3) && sep->IsNumber(4) && sep->IsNumber(5) && sep->IsNumber(6)) {
 				uint32 tmp = 2500;
+				uint32 tmp2 = 2500;
 				if (sep->IsNumber(7))
 					tmp = atoi(sep->arg[7]);
-				target->CastToNPC()->AI_SetRoambox(atof(sep->arg[2]), atof(sep->arg[3]), atof(sep->arg[4]), atof(sep->arg[5]), atof(sep->arg[6]), tmp);
+				if (sep->IsNumber(8))
+					tmp2 = atoi(sep->arg[8]);
+				target->CastToNPC()->AI_SetRoambox(atof(sep->arg[2]), atof(sep->arg[3]), atof(sep->arg[4]), atof(sep->arg[5]), atof(sep->arg[6]), tmp, tmp2);
 			}
 			else if ((sep->argnum == 3 || sep->argnum == 4) && sep->IsNumber(2) && sep->IsNumber(3)) {
 				uint32 tmp = 2500;
+				uint32 tmp2 = 2500;
 				if (sep->IsNumber(4))
 					tmp = atoi(sep->arg[4]);
-				target->CastToNPC()->AI_SetRoambox(atof(sep->arg[2]), atof(sep->arg[3]), tmp);
+				if (sep->IsNumber(5))
+					tmp2 = atoi(sep->arg[5]);
+				target->CastToNPC()->AI_SetRoambox(atof(sep->arg[2]), atof(sep->arg[3]), tmp, tmp2);
 			}
 			else {
-				c->Message(0, "Usage: #ai roambox dist max_x min_x max_y min_y [delay]");
-				c->Message(0, "Usage: #ai roambox dist roamdist [delay]");
+				c->Message(0, "Usage: #ai roambox dist max_x min_x max_y min_y [delay] [mindelay]");
+				c->Message(0, "Usage: #ai roambox dist roamdist [delay] [mindelay]");
 			}
 		}
 		else
@@ -2465,7 +2415,7 @@ void command_showskills(Client *c, const Seperator *sep)
 		t=c->GetTarget()->CastToClient();
 
 	c->Message(0, "Skills for %s", t->GetName());
-	for (SkillType i=_1H_BLUNT; i <= HIGHEST_SKILL; i=(SkillType)(i+1))
+	for (SkillUseTypes i=Skill1HBlunt; i <= HIGHEST_SKILL; i=(SkillUseTypes)(i+1))
 		c->Message(0, "Skill [%d] is at [%d]", i, t->GetSkill(i));
 }
 
@@ -2626,7 +2576,7 @@ void command_setskill(Client *c, const Seperator *sep)
 		int skill_num = atoi(sep->arg[1]);
 		uint16 skill_value = atoi(sep->arg[2]);
 		if(skill_num < HIGHEST_SKILL)
-			c->GetTarget()->CastToClient()->SetSkill((SkillType)skill_num, skill_value);
+			c->GetTarget()->CastToClient()->SetSkill((SkillUseTypes)skill_num, skill_value);
 	}
 }
 
@@ -2644,7 +2594,7 @@ void command_setskillall(Client *c, const Seperator *sep)
 		if (c->Admin() >= commandSetSkillsOther || c->GetTarget()==c || c->GetTarget()==0) {
 			LogFile->write(EQEMuLog::Normal,"Set ALL skill request from %s, target:%s", c->GetName(), c->GetTarget()->GetName());
 			uint16 level = atoi(sep->arg[1]);
-			for(SkillType skill_num=_1H_BLUNT;skill_num <= HIGHEST_SKILL;skill_num=(SkillType)(skill_num+1)) {
+			for(SkillUseTypes skill_num=Skill1HBlunt;skill_num <= HIGHEST_SKILL;skill_num=(SkillUseTypes)(skill_num+1)) {
 				c->GetTarget()->CastToClient()->SetSkill(skill_num, level);
 			}
 		}
@@ -2691,19 +2641,35 @@ void command_makepet(Client *c, const Seperator *sep)
 void command_level(Client *c, const Seperator *sep)
 {
 	uint16 level = atoi(sep->arg[1]);
-	if ((level <= 0) || ((level > RuleI(Character, MaxLevel)) && (c->Admin() < commandLevelAboveCap)) )
+
+	if ((level <= 0) || ((level > RuleI(Character, MaxLevel)) && (c->Admin() < commandLevelAboveCap))) {
 		c->Message(0, "Error: #Level: Invalid Level");
-	else if (c->Admin() < 100)
+	}
+	else if (c->Admin() < 100) {
 		c->SetLevel(level, true);
-	else if (!c->GetTarget())
+#ifdef BOTS
+		if(RuleB(Bots, BotLevelsWithOwner))
+			Bot::LevelBotWithClient(c, level, true);
+#endif
+	}
+	else if (!c->GetTarget()) {
 		c->Message(0, "Error: #Level: No target");
-	else
-		if (!c->GetTarget()->IsNPC() && ((c->Admin() < commandLevelNPCAboveCap) && (level > RuleI(Character, MaxLevel))))
+	}
+	else {
+		if (!c->GetTarget()->IsNPC() && ((c->Admin() < commandLevelNPCAboveCap) && (level > RuleI(Character, MaxLevel)))) {
 			c->Message(0, "Error: #Level: Invalid Level");
-		else
+		}
+		else {
 			c->GetTarget()->SetLevel(level, true);
-	if(c->GetTarget() && c->GetTarget()->IsClient())
-		c->GetTarget()->CastToClient()->SendLevelAppearance();
+			if(c->GetTarget()->IsClient()) {
+				c->GetTarget()->CastToClient()->SendLevelAppearance();
+#ifdef BOTS
+				if(RuleB(Bots, BotLevelsWithOwner))
+					Bot::LevelBotWithClient(c->GetTarget()->CastToClient(), level, true);
+#endif
+			}
+		}
+	}
 }
 
 void command_spawn(Client *c, const Seperator *sep)
@@ -3021,7 +2987,7 @@ void command_peekinv(Client *c, const Seperator *sep)
 			}
 		}
 		else {
-			for(it=client->GetInv().cursor_begin();it!=client->GetInv().cursor_end();it++,i++) {
+			for(it=client->GetInv().cursor_begin();it!=client->GetInv().cursor_end();++it,i++) {
 				const ItemInst* inst = *it;
 				item = (inst) ? inst->GetItem() : nullptr;
 				if (c->GetClientVersion() >= EQClientSoF)
@@ -4589,7 +4555,7 @@ void command_damage(Client *c, const Seperator *sep)
 		if (nkdmg > 2100000000)
 			c->Message(0, "Enter a value less then 2,100,000,000.");
 		else
-			c->GetTarget()->Damage(c, nkdmg, SPELL_UNKNOWN, HAND_TO_HAND, false);
+			c->GetTarget()->Damage(c, nkdmg, SPELL_UNKNOWN, SkillHandtoHand, false);
 	}
 }
 
@@ -5305,7 +5271,7 @@ void command_manaburn(Client *c, const Seperator *sep)
 					int nukedmg=(c->GetMana())*2;
 					if (nukedmg>0)
 					{
-						target->Damage(c, nukedmg, 2751, ABJURE/*hackish*/);
+						target->Damage(c, nukedmg, 2751, SkillAbjuration/*hackish*/);
 						c->Message(4,"You unleash an enormous blast of magical energies.");
 					}
 					LogFile->write(EQEMuLog::Normal,"Manaburn request from %s, damage: %d", c->GetName(), nukedmg);
@@ -6365,7 +6331,7 @@ void command_ban(Client *c, const Seperator *sep)
 			client = entity_list.GetClientByName(sep->arg[1]);
 			if(client)
 			{
-				client->Kick();
+				client->WorldKick();
 			}
 			else
 			{
@@ -6427,7 +6393,7 @@ void command_suspend(Client *c, const Seperator *sep)
 			Client *BannedClient = entity_list.GetClientByName(sep->arg[1]);
 
 			if(BannedClient)
-				BannedClient->Kick();
+				BannedClient->WorldKick();
 			else
 			{
 				ServerPacket* pack = new ServerPacket(ServerOP_KickPlayer, sizeof(ServerKickPlayer_Struct));
@@ -6627,40 +6593,56 @@ void command_npcedit(Client *c, const Seperator *sep)
 	if ( strcasecmp( sep->arg[1], "help" ) == 0 ) {
 
 		c->Message(0, "Help File for #npcedit. Syntax for commands are:");
-		c->Message(0, "#npcedit Name - Sets an NPCs name");
-		c->Message(0, "#npcedit Lastname - Sets an NPCs lastname");
-		c->Message(0, "#npcedit Level - Sets an NPCs level");
-		c->Message(0, "#npcedit Race - Sets an NPCs race");
-		c->Message(0, "#npcedit Class - Sets an NPCs class");
-		c->Message(0, "#npcedit Bodytype - Sets an NPCs bodytype");
-		c->Message(0, "#npcedit HP - Sets an NPCs hitpoints");
-		c->Message(0, "#npcedit Gender - Sets an NPCs gender");
-		c->Message(0, "#npcedit Texture - Sets an NPCs texture");
-		c->Message(0, "#npcedit Helmtexture - Sets an NPCs helmtexture");
-		c->Message(0, "#npcedit Size - Sets an NPCs size");
-		c->Message(0, "#npcedit Hpregen - Sets an NPCs hitpoint regen rate per tick");
-		c->Message(0, "#npcedit Manaregen - Sets an NPCs mana regen rate per tick");
-		c->Message(0, "#npcedit Loottable - Sets the lootable ID for an NPC ");
+		c->Message(0, "#npcedit Name - Sets an NPC's name");
+		c->Message(0, "#npcedit Lastname - Sets an NPC's lastname");
+		c->Message(0, "#npcedit Level - Sets an NPC's level");
+		c->Message(0, "#npcedit Maxlevel - Sets an NPC's maximum level");
+		c->Message(0, "#npcedit Race - Sets an NPC's race");
+		c->Message(0, "#npcedit Class - Sets an NPC's class");
+		c->Message(0, "#npcedit Bodytype - Sets an NPC's bodytype");
+		c->Message(0, "#npcedit HP - Sets an NPC's hitpoints");
+		c->Message(0, "#npcedit Gender - Sets an NPC's gender");
+		c->Message(0, "#npcedit Texture - Sets an NPC's texture");
+		c->Message(0, "#npcedit Helmtexture - Sets an NPC's helmtexture");
+		c->Message(0, "#npcedit Size - Sets an NPC's size");
+		c->Message(0, "#npcedit Hpregen - Sets an NPC's hitpoint regen rate per tick");
+		c->Message(0, "#npcedit Manaregen - Sets an NPC's mana regen rate per tick");
+		c->Message(0, "#npcedit Loottable - Sets the loottable ID for an NPC ");
 		c->Message(0, "#npcedit Merchantid - Sets the merchant ID for an NPC");
 		c->Message(0, "#npcedit alt_currency_id - Sets the Alternate Currency ID for an alterative currency Merchant");
+		c->Message(0, "#npcedit npc_spells_effects_id - Sets the NPC Spell Effects ID");
+		c->Message(0, "#npcedit adventure_template_id - Sets the NPC's Adventure Template ID");
+		c->Message(0, "#npcedit trap_template - Sets the NPC's Trap Template ID");
+		c->Message(0, "#npcedit special_abilities - Sets the NPC's Special Abilities");
 		c->Message(0, "#npcedit Spell - Sets the npc spells list ID for an NPC");
-		c->Message(0, "#npcedit Faction - Sets the NPCs faction id");
-		c->Message(0, "#npcedit Mindmg - Sets an NPCs minimum damage");
-		c->Message(0, "#npcedit Maxdmg - Sets an NPCs maximum damage");
-		c->Message(0, "#npcedit Aggroradius - Sets an NPCs aggro radius");
+		c->Message(0, "#npcedit Faction - Sets the NPC's faction id");
+		c->Message(0, "#npcedit Mindmg - Sets an NPC's minimum damage");
+		c->Message(0, "#npcedit Maxdmg - Sets an NPC's maximum damage");
+		c->Message(0, "#npcedit Aggroradius - Sets an NPC's aggro radius");
+		c->Message(0, "#npcedit Assistradius - Sets an NPC's assist radius");
 		c->Message(0, "#npcedit Social - Set to 1 if an NPC should assist others on its faction");
-		c->Message(0, "#npcedit Runspeed - Sets an NPCs run speed");
-		c->Message(0, "#npcedit MR - Sets an NPCs magic resistance");
-		c->Message(0, "#npcedit PR - Sets an NPCs poisen resistance");
-		c->Message(0, "#npcedit DR - Sets an NPCs disease resistance");
-		c->Message(0, "#npcedit FR - Sets an NPCs fire resistance");
-		c->Message(0, "#npcedit CR - Sets an NPCs cold resistance");
-		c->Message(0, "#npcedit Corrup - Sets an NPCs corruption resistance");
-		c->Message(0, "#npcedit Seeinvis - Sets an NPCs ability to see invis");
-		c->Message(0, "#npcedit Seeinvisundead - Sets an NPCs ability to see through invis vs. undead");
-		c->Message(0, "#npcedit Seehide - Sets an NPCs ability to see through hide");
-		c->Message(0, "#npcedit Seeimprovedhide - Sets an NPCs ability to see through improved hide");
-		c->Message(0, "#npcedit AC - Sets an NPCs armor class");
+		c->Message(0, "#npcedit Runspeed - Sets an NPC's run speed");
+		c->Message(0, "#npcedit AGI - Sets an NPC's Agility");
+		c->Message(0, "#npcedit CHA - Sets an NPC's Charisma");
+		c->Message(0, "#npcedit DEX - Sets an NPC's Dexterity");
+		c->Message(0, "#npcedit INT - Sets an NPC's Intelligence");
+		c->Message(0, "#npcedit STA - Sets an NPC's Stamina");
+		c->Message(0, "#npcedit STR - Sets an NPC's Strength");
+		c->Message(0, "#npcedit WIS - Sets an NPC's Wisdom");
+		c->Message(0, "#npcedit MR - Sets an NPC's Magic Resistance");
+		c->Message(0, "#npcedit PR - Sets an NPC's Poison Resistance");
+		c->Message(0, "#npcedit DR - Sets an NPC's Disease Resistance");
+		c->Message(0, "#npcedit FR - Sets an NPC's Fire Resistance");
+		c->Message(0, "#npcedit CR - Sets an NPC's cold resistance");
+		c->Message(0, "#npcedit Corrup - Sets an NPC's Corruption Resistance");
+		c->Message(0, "#npcedit PhR - Sets and NPC's Physical Resistance");
+		c->Message(0, "#npcedit Seeinvis - Sets an NPC's ability to see invis");
+		c->Message(0, "#npcedit Seeinvisundead - Sets an NPC's ability to see through invis vs. undead");
+		c->Message(0, "#npcedit Seehide - Sets an NPC's ability to see through hide");
+		c->Message(0, "#npcedit Seeimprovedhide - Sets an NPC's ability to see through improved hide");
+		c->Message(0, "#npcedit AC - Sets an NPC's Armor Class");
+		c->Message(0, "#npcedit ATK - Sets an NPC's Attack");
+		c->Message(0, "#npcedit Accuracy - Sets an NPC's Accuracy");
 		c->Message(0, "#npcedit npcaggro - Sets an NPC's npc_aggro flag");
 		c->Message(0, "#npcedit qglobal - Sets an NPC's quest global flag");
 		c->Message(0, "#npcedit limit - Sets an NPC's spawn limit counter");
@@ -6669,15 +6651,21 @@ void command_npcedit(Client *c, const Seperator *sep)
 		c->Message(0, "#npcedit wep1 - Sets an NPC's primary weapon model");
 		c->Message(0, "#npcedit wep2 - Sets an NPC's secondary weapon model");
 		c->Message(0, "#npcedit featuresave - Saves all current facial features to the database");
-		c->Message(0, "#npcedit armortint_id - Set NPC Armor tint ID");
-		c->Message(0, "#npcedit setanimation - Set NPC's animation on spawn (Stored in spawn2 table)");
+		c->Message(0, "#npcedit color - Sets an NPC's red, green, and blue armor tint");
+		c->Message(0, "#npcedit armortint_id - Set an NPC's Armor tint ID");
+		c->Message(0, "#npcedit setanimation - Set an NPC's animation on spawn (Stored in spawn2 table)");
+		c->Message(0, "#npcedit scalerate - Set an NPC's scaling rate");
+		c->Message(0, "#npcedit healscale - Set an NPC's heal scaling rate");
+		c->Message(0, "#npcedit spellscale - Set an NPC's spell scaling rate");
+		c->Message(0, "#npcedit no_target - Set an NPC's ability to be targeted with the target hotkey");
+		c->Message(0, "#npcedit version - Set an NPC's version");
 
 	}
 	else if ( strcasecmp( sep->arg[1], "name" ) == 0 )
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has the name %s",c->GetTarget()->CastToNPC()->GetNPCTypeID(),(sep->argplus[2]));
+		c->Message(15,"NPCID %u now has the name %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),(sep->argplus[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set name='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6687,7 +6675,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has the lastname %s",c->GetTarget()->CastToNPC()->GetNPCTypeID(),(sep->argplus[2]));
+		c->Message(15,"NPCID %u now has the lastname %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),(sep->argplus[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set lastname='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6696,7 +6684,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has the race %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has the race %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set race=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6705,7 +6693,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u is now class %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u is now class %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set class=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6714,7 +6702,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has type %i bodytype ",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has type %i bodytype.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set bodytype=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6723,7 +6711,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has %i Hitpoints",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has %i Hitpoints.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set hp=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6732,7 +6720,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u is now gender %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u is now gender %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set gender=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6741,7 +6729,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now uses texture %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now uses texture %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set texture=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6750,7 +6738,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now uses helmtexture %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now uses helmtexture %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set helmtexture=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6759,7 +6747,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u is now size %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u is now size %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set size=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6768,7 +6756,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now regens %i hitpoints per tick",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now regens %i hitpoints per tick.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set hp_regen_rate=%i where hp_regen_rate=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6777,7 +6765,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now regens %i mana per tick",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now regens %i mana per tick.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set mana_regen_rate=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6786,7 +6774,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u is now on loottable_id %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u is now on loottable_id %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set loottable_id=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6795,7 +6783,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now is merchant_id %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u is now merchant_id %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set merchant_id=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6804,8 +6792,44 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has field 'alt_currency_id' set to %s",c->GetTarget()->CastToNPC()->GetNPCTypeID(), (sep->argplus[2]));
+		c->Message(15,"NPCID %u now has field 'alt_currency_id' set to %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(), (sep->argplus[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set alt_currency_id='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "npc_spells_effects_id" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has field 'npc_spells_effects_id' set to %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(), (sep->argplus[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set npc_spells_effects_id='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "adventure_template_id" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has field 'adventure_template_id' set to %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(), (sep->argplus[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set adventure_template_id='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "trap_template" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has field 'trap_template' set to %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(), (sep->argplus[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set trap_template='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "special_abilities" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has field 'special_abilities' set to %s.",c->GetTarget()->CastToNPC()->GetNPCTypeID(), (sep->argplus[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set special_abilities='%s' where id=%i",(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
@@ -6854,6 +6878,15 @@ void command_npcedit(Client *c, const Seperator *sep)
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
+	else if ( strcasecmp( sep->arg[1], "assistradius" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has an assist radius of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set assistradius=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
 	else if ( strcasecmp( sep->arg[1], "social" ) == 0 )
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
@@ -6872,11 +6905,74 @@ void command_npcedit(Client *c, const Seperator *sep)
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
+	else if ( strcasecmp( sep->arg[1], "AGI" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Agility.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set AGI=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "CHA" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Charisma.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set CHA=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "DEX" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Dexterity.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set DEX=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "INT" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Intelligence.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set _INT=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "STA" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Stamina.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set STA=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "STR" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Strength.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set STR=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "WIS" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has a Magic Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set WIS=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
 	else if ( strcasecmp( sep->arg[1], "MR" ) == 0 )
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has a magic resist of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has a Magic Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set MR=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6885,7 +6981,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has a disease resist of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has a Disease Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set DR=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6894,7 +6990,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has a cold resist of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has a Cold Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set CR=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6903,7 +6999,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has a fire resist of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has a Fire Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set FR=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6912,7 +7008,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has a poison resist of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has a Poison Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set PR=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6921,8 +7017,17 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has a corruption resist of %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has a Corruption Resistance of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set corrup=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "PhR" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15, "NPCID %u now has a Physical Resistance of %i.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set PhR=%i where id=%i", atoi(sep->argplus[2]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
@@ -6930,7 +7035,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has seeinvis set to %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has seeinvis set to %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set see_invis=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6939,7 +7044,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has seeinvisundead set to %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has seeinvisundead set to %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set see_invis_undead=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6948,7 +7053,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has seehide set to %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has seehide set to %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set see_hide=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6957,7 +7062,7 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has seeimprovedhide set to %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u now has seeimprovedhide set to %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set see_improved_hide=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
@@ -6966,8 +7071,26 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u now has %i armor class",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->argplus[2]));
+		c->Message(15,"NPCID %u now has %i Armor Class.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->argplus[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set ac=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "ATK" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Attack.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->argplus[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set atk=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "Accuracy" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i Accuracy.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->argplus[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set accuracy=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
@@ -6975,8 +7098,17 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"NPCID %u is now level %i",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		c->Message(15,"NPCID %u is now level %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
 		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set level=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "maxlevel" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has a maximum level of %i.",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set maxlevel=%i where id=%i",atoi(sep->argplus[2]),c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
@@ -6984,8 +7116,8 @@ void command_npcedit(Client *c, const Seperator *sep)
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
 		char *query = 0;
-		c->Message(15,"Quest globals have been %d for NPCID %u",c->GetTarget()->CastToNPC()->GetNPCTypeID(),atoi(sep->arg[2])==0?"disabled":"enabled");
-		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set qglobal=%i where id=%i",atoi(sep->argplus[2])==0?0:1,c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->Message(15, "Quest globals have been %s for NPCID %u", atoi(sep->arg[2]) == 0 ? "disabled" : "enabled", c->GetTarget()->CastToNPC()->GetNPCTypeID());
+		database.RunQuery(query, MakeAnyLenString(&query, "UPDATE npc_types SET qglobal=%i WHERE id=%i", atoi(sep->argplus[2]) == 0 ? 0 : 1, c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
@@ -7075,7 +7207,15 @@ void command_npcedit(Client *c, const Seperator *sep)
 		safe_delete_array(query);
 
 	}
-
+	else if ( strcasecmp( sep->arg[1], "color" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15,"NPCID %u now has %i red, %i green, and %i blue tinting on their armor.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]), atoi(sep->arg[3]), atoi(sep->arg[4]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set armortint_red=%i, armortint_green=%i, armortint_blue=%i where id=%i", atoi(sep->arg[2]), atoi(sep->arg[3]), atoi(sep->arg[4]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
 	else if ( strcasecmp( sep->arg[1], "armortint_id" ) == 0 )
 	{
 		char errbuf[MYSQL_ERRMSG_SIZE];
@@ -7116,6 +7256,51 @@ void command_npcedit(Client *c, const Seperator *sep)
 		c->Message(15,"NPCID %u now has the animation set to %i on spawn with spawngroup %i", c->GetTarget()->CastToNPC()->GetNPCTypeID(), Animation, c->GetTarget()->CastToNPC()->GetSp2() );
 		database.RunQuery(query, MakeAnyLenString(&query, "update spawn2 set animation = %i where spawngroupID=%i", Animation, c->GetTarget()->CastToNPC()->GetSp2()), errbuf);
 		c->GetTarget()->SetAppearance(EmuAppearance(Animation));
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "scalerate" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15, "NPCID %u now has a scaling rate of %i.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set scalerate=%i where id=%i", atoi(sep->arg[2]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "healscale" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15, "NPCID %u now has a heal scaling rate of %i.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set healscale=%i where id=%i", atoi(sep->arg[2]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "spellscale" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15, "NPCID %u now has a spell scaling rate of %i.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set spellscale=%i where id=%i", atoi(sep->arg[2]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "no_target" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15, "NPCID %u is now %s.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]) == 0 ? "targetable" : "untargetable");
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set no_target_hotkey=%i where id=%i", atoi(sep->arg[2]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
+		c->LogSQL(query);
+		safe_delete_array(query);
+	}
+	else if ( strcasecmp( sep->arg[1], "version" ) == 0 )
+	{
+		char errbuf[MYSQL_ERRMSG_SIZE];
+		char *query = 0;
+		c->Message(15, "NPCID %u is now version %i.", c->GetTarget()->CastToNPC()->GetNPCTypeID(), atoi(sep->arg[2]));
+		database.RunQuery(query, MakeAnyLenString(&query, "update npc_types set version=%i where id=%i", atoi(sep->arg[2]), c->GetTarget()->CastToNPC()->GetNPCTypeID()), errbuf);
 		c->LogSQL(query);
 		safe_delete_array(query);
 	}
@@ -7280,179 +7465,6 @@ void command_qglobal(Client *c, const Seperator *sep) {
 	}
 }
 
-void command_fear(Client *c, const Seperator *sep) {
-/*
-	//super-command for editing fear grids and hints
-//	char errbuf[MYSQL_ERRMSG_SIZE];
-//	char *query = 0;
-	if(sep->arg[1][0] == '\0' || !strcasecmp(sep->arg[1], "help")) {
-		c->Message(0, "Syntax: #fear [view|close|add|link|list|del].");
-		c->Message(0, "...view - spawn an NPC at each fear grid point, and fear hint");
-		c->Message(0, "...close - spawn an NPC at the closest fear point");
-		c->Message(0, "...path [##] [draw|npc] - draw a path (or spawn an NPC) at each fear point for ## hops");
-//		c->Message(0, "...add [force|disjoint]- add a new fear hint point where your standing");
-//		c->Message(0, "....... force requires this point not move when combining nodes");
-//		c->Message(0, "....... disjoint marks the graph connected to this node as a valid disjoint graph");
-//		c->Message(0, "...link [id1] [id2] - make a fear hint link between two hint points");
-//		c->Message(0, "...list - show a list of all fear hint points for this zone");
-//		c->Message(0, "...find [range] - show a list of all fear hint points eithin range of you");
-//		c->Message(0, "...del [id] - remove the fear hint 'id'");
-//		c->Message(0, "...start - fears your target until you #fear stop them");
-//		c->Message(0, "...stop - Stops fear on your target");
-		return;
-	}
-
-	if(!strcasecmp(sep->arg[1], "view")) {
-		if(zone->pathing == nullptr) {
-			c->Message(13, "There is no fear grid file loaded for this zone.");
-			return;
-		}
-
-		uint32 count = zone->pathing->CountNodes();
-		uint32 r;
-		char buf[128];
-		PathNode_Struct *node = zone->pathing->GetNode(0); //assumes nodes are stored in a linear array
-		for(r = 0; r < count; r++, node++) {
-			sprintf(buf, "Fear_Point%d 3", r);
-			NPC* npc = NPC::SpawnNPC(buf, node->x, node->y, node->z, c->GetHeading(), nullptr);
-			if(npc == nullptr)
-				c->Message(13, "Unable to spawn new NPC marker.");
-			//do we need to do anything else?
-		}
-	} else if(!strcasecmp(sep->arg[1], "path")) {
-		if(zone->pathing == nullptr) {
-			c->Message(13, "There is no fear grid file loaded for this zone.");
-			return;
-		}
-
-		int dist = atoi(sep->arg[2]);
-		char buf[128];
-
-		FindPerson_Point it;
-		vector<FindPerson_Point> pts;
-		pts.reserve(dist+2);
-		bool path_mode = (strcasecmp(sep->arg[3], "npc") != 0);
-
-		MobFearState fs;
-
-		sprintf(buf, "Close_Fear_Link%d_ 3", dist);
-		if(!zone->pathing->FindNearestFear(&fs, c->GetX(), c->GetY(), c->GetZ())) {
-			c->Message(13, "Unable to locate a closest fear path.");
-			return;
-		}
-
-		if(path_mode) {
-			it.x = c->GetX();
-			it.y = c->GetY();
-			it.z = c->GetZ();
-			pts.push_back(it);
-			it.x = fs.x;
-			it.y = fs.y;
-			it.z = fs.z;
-			pts.push_back(it);
-		} else {
-			NPC* npc = NPC::SpawnNPC(buf, fs.x, fs.y, fs.z, c->GetHeading(), nullptr);
-			if(npc == nullptr)
-				c->Message(13, "Unable to spawn new NPC marker.");
-		}
-
-		for(dist--; dist > 0; dist--) {
-			sprintf(buf, "Close_Fear_Link%d_ 3", dist);
-			if(!zone->pathing->NextFearPath(&fs)) {
-				c->Message(13, "Unable to locate next fear path.");
-				return;
-			}
-
-			if(path_mode) {
-				it.x = fs.x;
-				it.y = fs.y;
-				it.z = fs.z;
-				pts.push_back(it);
-			} else {
-				NPC::SpawnNPC(buf, fs.x, fs.y, fs.z, c->GetHeading(), nullptr);
-			}
-		}
-
-		if(path_mode) {
-			c->SendPathPacket(pts);
-		}
-
-	} else if(!strcasecmp(sep->arg[1], "close")) {
-		if(zone->pathing == nullptr) {
-			c->Message(13, "There is no fear grid file loaded for this zone.");
-			return;
-		}
-		MobFearState fs;
-
-		if(!zone->pathing->FindNearestFear(&fs, c->GetX(), c->GetY(), c->GetZ())) {
-			c->Message(13, "Unable to locate a closest fear path.");
-			return;
-		}
-
-		NPC* npc = NPC::SpawnNPC("Close_Fear_Point 2", fs.x, fs.y, fs.z, c->GetHeading(), nullptr);
-		if(npc == nullptr)
-			c->Message(13, "Unable to spawn new NPC marker.");
-
-	} else if(!strcasecmp(sep->arg[1], "see")) {
-
-		vector<FindPerson_Point> points;
-
-		Mob* target = c->GetTarget();
-
-		if(target == nullptr) {
-			//empty length packet == not found.
-			EQApplicationPacket outapp(OP_FindPersonReply, 0);
-			c->QueuePacket(&outapp);
-			return;
-		}
-
-		c->Message(13, "Found NPC '%s'\n", target->GetName());
-
-		//fill in the path array...
-		points.resize(4);
-		points[0].x = c->GetX();
-		points[0].y = c->GetY();
-		points[0].z = c->GetZ();
-		points[1].x = target->GetX();
-		points[1].y = target->GetY();
-		points[1].z = target->GetZ();
-		points[2].x = 10;
-		points[2].y = 10;
-		points[2].z = 10;
-		points[3].x = 0;
-		points[3].y = 0;
-		points[3].z = 0;
-
-
-
-		if(points.size() == 0) {
-			//empty length packet == not found.
-			EQApplicationPacket outapp(OP_FindPersonReply, 0);
-			c->QueuePacket(&outapp);
-			return;
-		}
-
-		int len = sizeof(FindPersonResult_Struct) + points.size() * sizeof(FindPerson_Point);
-		EQApplicationPacket *outapp = new EQApplicationPacket(OP_FindPersonReply, len);
-		FindPersonResult_Struct* fpr=(FindPersonResult_Struct*)outapp->pBuffer;
-
-		vector<FindPerson_Point>::iterator cur, end;
-		cur = points.begin();
-		end = points.end();
-		int r;
-		for(r = 0; cur != end; cur++, r++) {
-			fpr->path[r] = *cur;
-		}
-		cur--;	//last element.
-		fpr->dest = *cur;
-
-		c->FastQueuePacket(&outapp);
-	} else {
-		c->Message(15, "Invalid action specified. use '#fear help' for help");
-	}
-	*/
-}
-
 void command_path(Client *c, const Seperator *sep)
 {
 	if(sep->arg[1][0] == '\0' || !strcasecmp(sep->arg[1], "help"))
@@ -7510,8 +7522,8 @@ void command_path(Client *c, const Seperator *sep)
 
 			if(zone->zonemap)
 			{
-				VERTEX loc(px, py, pz);
-				best_z = zone->zonemap->FindBestZ(MAP_ROOT_NODE, loc, nullptr, nullptr);
+				Map::Vertex loc(px, py, pz);
+				best_z = zone->zonemap->FindBestZ(loc, nullptr);
 			}
 			else
 			{
@@ -7537,8 +7549,8 @@ void command_path(Client *c, const Seperator *sep)
 
 			if(zone->zonemap)
 			{
-				VERTEX loc(px, py, pz);
-				best_z = zone->zonemap->FindBestZ(MAP_ROOT_NODE, loc, nullptr, nullptr);
+				Map::Vertex loc(px, py, pz);
+				best_z = zone->zonemap->FindBestZ(loc, nullptr);
 			}
 			else
 			{
@@ -7670,8 +7682,8 @@ void command_path(Client *c, const Seperator *sep)
 		{
 			if(c && c->GetTarget())
 			{
-				if(zone->pathing->NoHazardsAccurate(VERTEX(c->GetX(),c->GetY(),c->GetZ()),
-					VERTEX(c->GetTarget()->GetX(),c->GetTarget()->GetY(),c->GetTarget()->GetZ())))
+				if (zone->pathing->NoHazardsAccurate(Map::Vertex(c->GetX(), c->GetY(), c->GetZ()),
+					Map::Vertex(c->GetTarget()->GetX(), c->GetTarget()->GetY(), c->GetTarget()->GetZ())))
 				{
 					c->Message(0, "No hazards.");
 				}
@@ -7747,7 +7759,7 @@ void command_path(Client *c, const Seperator *sep)
 		{
 			Mob *m = c->GetTarget();
 
-			VERTEX Position(m->GetX(), m->GetY(), m->GetZ());
+			Map::Vertex Position(m->GetX(), m->GetY(), m->GetZ());
 
 			int Node = zone->pathing->FindNearestPathNode(Position);
 
@@ -7760,7 +7772,7 @@ void command_path(Client *c, const Seperator *sep)
 		}
 	}
 
-	return;
+	c->Message(0, "Unknown path command.");
 }
 
 void Client::Undye() {
@@ -7876,43 +7888,26 @@ void command_pf(Client *c, const Seperator *sep)
 
 void command_bestz(Client *c, const Seperator *sep) {
 	if (zone->zonemap == nullptr) {
-		c->Message(0,"Maps deactivated in this zone.");
-		return;
-	}
-
-	NodeRef pnode;
-	if(c->GetTarget()) {
-		pnode = zone->zonemap->SeekNode( zone->zonemap->GetRoot(), c->GetTarget()->GetX(), c->GetTarget()->GetY() );
+		c->Message(0,"Map not loaded for this zone");
 	} else {
-		pnode = zone->zonemap->SeekNode( zone->zonemap->GetRoot(), c->GetX(), c->GetY() );
-	}
-	if (pnode == NODE_NONE) {
-		c->Message(0,"Unable to find your node.");
-		return;
-	}
+		Map::Vertex me;
+		me.x = c->GetX();
+		me.y = c->GetY();
+		me.z = c->GetZ() + (c->GetSize() == 0.0 ? 6 : c->GetSize()) * HEAD_POSITION;
+		Map::Vertex hit;
+		Map::Vertex bme(me);
+		bme.z -= 500;
 
-	VERTEX me;
-	me.x = c->GetX();
-	me.y = c->GetY();
-	me.z = c->GetZ() + (c->GetSize()==0.0?6:c->GetSize()) * HEAD_POSITION;
-	VERTEX hit;
-	VERTEX bme(me);
-	bme.z -= 500;
+		float best_z = zone->zonemap->FindBestZ(me, &hit);
 
-	float best_z = zone->zonemap->FindBestZ(pnode, me, &hit, nullptr);
-
-	float best_z2 = -999990;
-	if(zone->zonemap->LineIntersectsNode(pnode, me, bme, &hit, nullptr)) {
-		best_z2 = hit.z;
-	}
-
-	if (best_z != -999999)
-	{
-		c->Message(0,"Z is %.3f or %.3f at (%.3f, %.3f).", best_z, best_z2, me.x, me.y);
-	}
-	else
-	{
-		c->Message(0,"Found no Z.");
+		if (best_z != -999999)
+		{
+			c->Message(0, "Z is %.3f at (%.3f, %.3f).", best_z, me.x, me.y);
+		}
+		else
+		{
+			c->Message(0, "Found no Z.");
+		}
 	}
 
 	if(zone->watermap == nullptr) {
@@ -7923,14 +7918,14 @@ void command_bestz(Client *c, const Seperator *sep) {
 
 		if(c->GetTarget()) {
 			z=c->GetTarget()->GetZ();
-			RegionType = zone->watermap->BSPReturnRegionType(1, c->GetTarget()->GetX(), c->GetTarget()->GetY(), z);
+			RegionType = zone->watermap->ReturnRegionType(c->GetTarget()->GetX(), c->GetTarget()->GetY(), z);
 			c->Message(0,"InWater returns %d", zone->watermap->InWater(c->GetTarget()->GetX(), c->GetTarget()->GetY(), z));
 			c->Message(0,"InLava returns %d", zone->watermap->InLava(c->GetTarget()->GetX(), c->GetTarget()->GetY(), z));
 
 		}
 		else {
 			z=c->GetZ();
-			RegionType = zone->watermap->BSPReturnRegionType(1, c->GetX(), c->GetY(),z);
+			RegionType = zone->watermap->ReturnRegionType(c->GetX(), c->GetY(), z);
 			c->Message(0,"InWater returns %d", zone->watermap->InWater(c->GetX(), c->GetY(), z));
 			c->Message(0,"InLava returns %d", zone->watermap->InLava(c->GetX(), c->GetY(), z));
 
@@ -8349,7 +8344,7 @@ void command_rules(Client *c, const Seperator *sep) {
 		std::map<int, std::string>::iterator cur, end;
 		cur = sets.begin();
 		end = sets.end();
-		for(; cur != end; cur++) {
+		for(; cur != end; ++cur) {
 			c->Message(0, "(%d) %s", cur->first, cur->second.c_str());
 		}
 	} else if(!strcasecmp(sep->arg[1], "reload")) {
@@ -8448,7 +8443,7 @@ void command_rules(Client *c, const Seperator *sep) {
 			std::vector<const char *>::iterator cur, end;
 			cur = rule_list.begin();
 			end = rule_list.end();
-			for(; cur != end; cur++) {
+			for(; cur != end; ++cur) {
 				c->Message(0, " %s", *cur);
 			}
 		} else if(sep->argnum == 2) {
@@ -8464,7 +8459,7 @@ void command_rules(Client *c, const Seperator *sep) {
 			std::vector<const char *>::iterator cur, end;
 			cur = rule_list.begin();
 			end = rule_list.end();
-			for(; cur != end; cur++) {
+			for(; cur != end; ++cur) {
 				c->Message(0, " %s", *cur);
 			}
 		} else {
@@ -8487,7 +8482,7 @@ void command_rules(Client *c, const Seperator *sep) {
 			std::vector<const char *>::iterator cur, end;
 			cur = rule_list.begin();
 			end = rule_list.end();
-			for(std::string tmp_value; cur != end; cur++) {
+			for(std::string tmp_value; cur != end; ++cur) {
 				if (RuleManager::Instance()->GetRule(*cur, tmp_value))
 					c->Message(0, " %s - %s", *cur, tmp_value.c_str());
 			}
@@ -10763,6 +10758,25 @@ void command_object(Client *c, const Seperator *sep)
 	}
 }
 
+void command_showspellslist(Client *c, const Seperator *sep)
+{
+	Mob *target = c->GetTarget();
+
+	if (!target) {
+		c->Message(0, "Must target an NPC.");
+		return;
+	}
+
+	if (!target->IsNPC()) {
+		c->Message(0, "%s is not an NPC.", target->GetName());
+		return;
+	}
+
+	target->CastToNPC()->AISpellsList(c);
+
+	return;
+}
+
 // All new code added to command.cpp ought to be BEFORE this comment line. Do no append code to this file below the BOTS code block.
 #ifdef BOTS
 // Function delegate to support the command interface for Bots with the client.
@@ -11045,14 +11059,14 @@ void command_max_all_skills(Client *c, const Seperator *sep)
 	{
 		for(int i = 0; i <= HIGHEST_SKILL; ++i)
 		{
-			if(i >= SPECIALIZE_ABJURE && i <= SPECIALIZE_EVOCATION)
+			if(i >= SkillSpecializeAbjure && i <= SkillSpecializeEvocation)
 			{
-				c->SetSkill((SkillType)i, 50);
+				c->SetSkill((SkillUseTypes)i, 50);
 			}
 			else
 			{
-				int max_skill_level = database.GetSkillCap(c->GetClass(), (SkillType)i, c->GetLevel());
-				c->SetSkill((SkillType)i, max_skill_level);
+				int max_skill_level = database.GetSkillCap(c->GetClass(), (SkillUseTypes)i, c->GetLevel());
+				c->SetSkill((SkillUseTypes)i, max_skill_level);
 			}
 		}
 	}
@@ -11077,9 +11091,6 @@ void command_showbonusstats(Client *c, const Seperator *sep)
 			c->Message(0, "  Target Spell Bonuses:");
 			c->Message(0, "  Accuracy: %i%%   Divine Save: %i%%",c->GetTarget()->GetSpellBonuses().Accuracy, c->GetTarget()->GetSpellBonuses().DivineSaveChance);
 			c->Message(0, "  Flurry: %i%%     HitChance: %i%% ",c->GetTarget()->GetSpellBonuses().FlurryChance, c->GetTarget()->GetSpellBonuses().HitChance / 15);
-			int deathsaveslot = c->GetTarget()->GetBuffSlotFromType(SE_DeathSave);
-			int dschance = deathsaveslot >= 0 ? c->GetTarget()->GetBuffs()[deathsaveslot].deathSaveSuccessChance : 0;
-			c->Message(0, "  Death Save: %i%%",dschance);
 		}
 		c->Message(0, "  Effective Casting Level: %i",c->GetTarget()->GetCasterLevel(0));
 	}
@@ -11142,14 +11153,14 @@ void command_disarmtrap(Client *c, const Seperator *sep)
 
 	if(target->IsNPC())
 	{
-		if(c->HasSkill(DISARM_TRAPS))
+		if(c->HasSkill(SkillDisarmTraps))
 		{
 			if(c->DistNoRootNoZ(*target) > RuleI(Adventure, LDoNTrapDistanceUse))
 			{
 				c->Message(13, "%s is too far away.", target->GetCleanName());
 				return;
 			}
-			c->HandleLDoNDisarm(target->CastToNPC(), c->GetSkill(DISARM_TRAPS), LDoNTypeMechanical);
+			c->HandleLDoNDisarm(target->CastToNPC(), c->GetSkill(SkillDisarmTraps), LDoNTypeMechanical);
 		}
 		else
 			c->Message(13, "You do not have the disarm trap skill.");
@@ -11167,14 +11178,14 @@ void command_sensetrap(Client *c, const Seperator *sep)
 
 	if(target->IsNPC())
 	{
-		if(c->HasSkill(SENSE_TRAPS))
+		if(c->HasSkill(SkillSenseTraps))
 		{
 			if(c->DistNoRootNoZ(*target) > RuleI(Adventure, LDoNTrapDistanceUse))
 			{
 				c->Message(13, "%s is too far away.", target->GetCleanName());
 				return;
 			}
-			c->HandleLDoNSenseTraps(target->CastToNPC(), c->GetSkill(SENSE_TRAPS), LDoNTypeMechanical);
+			c->HandleLDoNSenseTraps(target->CastToNPC(), c->GetSkill(SkillSenseTraps), LDoNTypeMechanical);
 		}
 		else
 			c->Message(13, "You do not have the sense traps skill.");
@@ -11192,14 +11203,14 @@ void command_picklock(Client *c, const Seperator *sep)
 
 	if(target->IsNPC())
 	{
-		if(c->HasSkill(PICK_LOCK))
+		if(c->HasSkill(SkillPickLock))
 		{
 			if(c->DistNoRootNoZ(*target) > RuleI(Adventure, LDoNTrapDistanceUse))
 			{
 				c->Message(13, "%s is too far away.", target->GetCleanName());
 				return;
 			}
-			c->HandleLDoNPickLock(target->CastToNPC(), c->GetSkill(PICK_LOCK), LDoNTypeMechanical);
+			c->HandleLDoNPickLock(target->CastToNPC(), c->GetSkill(SkillPickLock), LDoNTypeMechanical);
 		}
 		else
 			c->Message(13, "You do not have the pick locks skill.");
@@ -11428,4 +11439,105 @@ void command_questerrors(Client *c, const Seperator *sep)
 		++i;
 		++iter;
 	}
+}
+
+void command_enablerecipe(Client *c, const Seperator *sep)
+{
+	uint32 recipe_id = 0;
+	bool success = false;
+	if (c) {
+		if (sep->argnum == 1) {
+			recipe_id = atoi(sep->arg[1]);
+		}
+		else {
+			c->Message(0, "Invalid number of arguments.\nUsage: #enablerecipe recipe_id");
+			return;
+		}
+		if (recipe_id > 0) {
+			success = database.EnableRecipe(recipe_id);
+			if (success) {
+				c->Message(0, "Recipe enabled.");
+			}
+			else {
+				c->Message(0, "Recipe not enabled.");
+			}
+		}
+		else {
+			c->Message(0, "Invalid recipe id.\nUsage: #enablerecipe recipe_id");
+		}
+	}
+}
+
+void command_disablerecipe(Client *c, const Seperator *sep)
+{
+	uint32 recipe_id = 0;
+	bool success = false;
+	if (c) {
+		if (sep->argnum == 1) {
+			recipe_id = atoi(sep->arg[1]);
+		}
+		else {
+			c->Message(0, "Invalid number of arguments.\nUsage: #disablerecipe recipe_id");
+			return;
+		}
+		if (recipe_id > 0) {
+			success = database.DisableRecipe(recipe_id);
+			if (success) {
+				c->Message(0, "Recipe disabled.");
+			}
+			else {
+				c->Message(0, "Recipe not disabled.");
+			}
+		}
+		else {
+			c->Message(0, "Invalid recipe id.\nUsage: #disablerecipe recipe_id");
+		}
+	}
+}
+
+void command_npctype_cache(Client *c, const Seperator *sep)
+{
+	if (sep->argnum > 0) {
+		for (int i = 0; i < sep->argnum; ++i) {
+			if (strcasecmp(sep->arg[i + 1], "all") == 0) {
+				c->Message(0, "Clearing all npc types from the cache.");
+				zone->ClearNPCTypeCache(-1);
+			}
+			else {
+				int id = atoi(sep->arg[i + 1]);
+				if (id > 0) {
+					c->Message(0, "Clearing npc type %d from the cache.", id);
+					zone->ClearNPCTypeCache(id);
+					return;
+				}
+			}
+		}
+	}
+	else {
+		c->Message(0, "Usage:");
+		c->Message(0, "#npctype_cache [npctype_id] ...");
+		c->Message(0, "#npctype_cache all");
+	}
+}
+
+void command_merchantopenshop(Client *c, const Seperator *sep)
+{
+	Mob *merchant = c->GetTarget();
+	if (!merchant || merchant->GetClass() != MERCHANT) {
+		c->Message(0, "You must target a merchant to open their shop.");
+		return;
+	}
+
+	merchant->CastToNPC()->MerchantOpenShop();
+}
+
+void command_merchantcloseshop(Client *c, const Seperator *sep)
+{
+	Mob *merchant = c->GetTarget();
+	if (!merchant || merchant->GetClass() != MERCHANT) {
+		c->Message(0, "You must target a merchant to close their shop.");
+		return;
+	}
+
+	merchant->CastToNPC()->MerchantCloseShop();
 }

@@ -67,6 +67,7 @@ public:
 
 	bool	NPCPointerValid() { return (npcthis!=nullptr); }
 	void	SetNPCPointer(NPC* n) { npcthis = n; }
+	void	SetNPCPointerNull() { npcthis = nullptr; }
 	void	SetTimer(uint32 duration) { timer.Start(duration); }
 	uint32  GetKillCount() { return killcount; }
 protected:
@@ -101,7 +102,8 @@ public:
 		DoNothing = 0,
 		DoDepop = 1,
 		DoRepop = 2,
-		//... 3...9 reserved for future use
+		DoRepopIfReady = 3,
+		//... 4...9 reserved for future use
 		DoSignalMin = 10	//any number above this value is used as
 							//a base for the signal ID sent. e.g.
 							// value 12 sends signal id 2
@@ -133,6 +135,7 @@ public:
 	bool	enabled;
 	Action	action;
 	int16	argument;
+	bool	strict;
 
 	uint32	period;	//eq minutes (3 seconds) between events
 	TimeOfDay_Struct next;	//next time this event triggers
@@ -147,7 +150,7 @@ public:
 
 	int16 GetCondition(const char *zone_short, uint32 instance_id, uint16 condition_id);
 	void SetCondition(const char *zone_short, uint32 instance_id, uint16 condition_id, int16 new_value, bool world_update = false);
-	void ToggleEvent(uint32 event_id, bool enabled, bool reset_base);
+	void ToggleEvent(uint32 event_id, bool enabled, bool strict, bool reset_base);
 	bool Check(uint16 condition, int16 min_value);
 	void ReloadEvent(uint32 event_id);
 

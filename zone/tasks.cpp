@@ -585,7 +585,6 @@ bool TaskManager::LoadClientState(Client *c, ClientTaskState *state) {
 	else {
 		LogFile->write(EQEMuLog::Error, ERR_MYSQLERROR1, errbuf);
 		safe_delete_array(query);
-		safe_delete(state);
 		return false;
 	}
 
@@ -659,7 +658,6 @@ bool TaskManager::LoadClientState(Client *c, ClientTaskState *state) {
 	else {
 		LogFile->write(EQEMuLog::Error, ERR_MYSQLERROR2, errbuf);
 		safe_delete_array(query);
-		safe_delete(state);
 		return false;
 	}
 
@@ -738,7 +736,6 @@ bool TaskManager::LoadClientState(Client *c, ClientTaskState *state) {
 		else {
 			LogFile->write(EQEMuLog::Error, ERR_MYSQLERROR3, errbuf);
 			safe_delete_array(query);
-			safe_delete(state);
 			return false;
 		}
 	}
@@ -829,7 +826,7 @@ void ClientTaskState::EnableTask(int CharID, int TaskCount, int *TaskList) {
 			// Our list of enabled tasks is sorted, so we can quit if we find a taskid higher than
 			// the one we are looking for.
 			if((*Iterator) > TaskList[i]) break;
-			Iterator++;
+			++Iterator;
 		}
 		if(AddTask) {
 			EnabledTasks.insert(Iterator, TaskList[i]);
@@ -890,7 +887,7 @@ void ClientTaskState::DisableTask(int CharID, int TaskCount, int *TaskList) {
 				break;
 			}
 			if((*Iterator) > TaskList[i]) break;
-			Iterator++;
+			++Iterator;
 		}
 		if(RemoveTask) {
 			EnabledTasks.erase(Iterator);
@@ -947,7 +944,7 @@ bool ClientTaskState::IsTaskEnabled(int TaskID) {
 	while(Iterator != EnabledTasks.end()) {
 		if((*Iterator) == TaskID) return true;
 		if((*Iterator) > TaskID) break;
-		Iterator++;
+		++Iterator;
 	}
 
 	return false;
@@ -1021,7 +1018,7 @@ int TaskManager::FirstTaskInSet(int TaskSetID) {
 	while(Iterator != TaskSets[TaskSetID].end()) {
 		if((*Iterator) > 0)
 			return (*Iterator);
-		Iterator++;
+		++Iterator;
 	}
 
 	return 0;
@@ -1087,7 +1084,7 @@ void TaskManager::TaskSetSelector(Client *c, ClientTaskState *state, Mob *mob, i
 					(IsTaskRepeatable((*Iterator)) || !state->IsTaskCompleted((*Iterator))))
 					TaskList[TaskListIndex++] = (*Iterator);
 
-				Iterator++;
+				++Iterator;
 			}
 			if(TaskListIndex > 0)
 			{
@@ -1497,7 +1494,7 @@ bool ClientTaskState::UnlockActivities(int CharID, int TaskIndex) {
 						ErasedElements++;
 					}
 					else
-						Iterator++;
+						++Iterator;
 				}
 				_log(TASKS__UPDATE, "Erased Element count is %i", ErasedElements);
 				if(ErasedElements) {
@@ -1570,7 +1567,7 @@ bool ClientTaskState::UnlockActivities(int CharID, int TaskIndex) {
 						ErasedElements++;
 					}
 					else
-						Iterator++;
+						++Iterator;
 				}
 				_log(TASKS__UPDATE, "Erased Element count is %i", ErasedElements);
 				if(ErasedElements) {
@@ -1975,14 +1972,6 @@ void ClientTaskState::IncrementDoneCount(Client *c, TaskInformation* Task, int T
 				Task->Activity[ActivityID].GoalCount,
 				ActivityID);
 
-		if(Task->Activity[ActivityID].GoalMethod != METHODQUEST)
-		{
-			char buf[24];
-			snprintf(buf, 23, "%d %d", ActiveTasks[TaskIndex].TaskID, ActiveTasks[TaskIndex].Activity[ActivityID].ActivityID);
-			buf[23] = '\0';
-			parse->EventPlayer(EVENT_TASK_STAGE_COMPLETE, c, buf, 0);
-		}
-
 		// Flag the activity as complete
 		ActiveTasks[TaskIndex].Activity[ActivityID].State = ActivityCompleted;
 		// Unlock subsequent activities for this task
@@ -1994,6 +1983,15 @@ void ClientTaskState::IncrementDoneCount(Client *c, TaskInformation* Task, int T
 		taskmanager->SendSingleActiveTaskToClient(c, TaskIndex, TaskComplete, false);
 		// Inform the client the task has been updated, both by a chat message
 		c->Message(0, "Your task '%s' has been updated.", Task->Title);
+		
+		if(Task->Activity[ActivityID].GoalMethod != METHODQUEST)
+		{
+			char buf[24];
+			snprintf(buf, 23, "%d %d", ActiveTasks[TaskIndex].TaskID, ActiveTasks[TaskIndex].Activity[ActivityID].ActivityID);
+			buf[23] = '\0';
+			parse->EventPlayer(EVENT_TASK_STAGE_COMPLETE, c, buf, 0);
+		}
+		
 		// If this task is now complete, the Completed tasks will have been
 		// updated in UnlockActivities. Send the completed task list to the
 		// client. This is the same sequence the packets are sent on live.

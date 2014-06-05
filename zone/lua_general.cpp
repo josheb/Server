@@ -16,6 +16,7 @@
 #include "QuestParserCollection.h"
 #include "questmgr.h"
 #include "QGlobals.h"
+#include "../common/timer.h"
 
 struct Events { };
 struct Factions { };
@@ -167,12 +168,36 @@ void lua_set_timer(const char *timer, int time_ms) {
 	quest_manager.settimerMS(timer, time_ms);
 }
 
+void lua_set_timer(const char *timer, int time_ms, Lua_ItemInst inst) {
+	quest_manager.settimerMS(timer, time_ms, inst);
+}
+
+void lua_set_timer(const char *timer, int time_ms, Lua_Mob mob) {
+	quest_manager.settimerMS(timer, time_ms, mob);
+}
+
 void lua_stop_timer(const char *timer) {
 	quest_manager.stoptimer(timer);
 }
 
+void lua_stop_timer(const char *timer, Lua_ItemInst inst) {
+	quest_manager.stoptimer(timer, inst);
+}
+
+void lua_stop_timer(const char *timer, Lua_Mob mob) {
+	quest_manager.stoptimer(timer, mob);
+}
+
 void lua_stop_all_timers() {
 	quest_manager.stopalltimers();
+}
+
+void lua_stop_all_timers(Lua_ItemInst inst) {
+	quest_manager.stopalltimers(inst);
+}
+
+void lua_stop_all_timers(Lua_Mob mob) {
+	quest_manager.stopalltimers(mob);
 }
 
 void lua_depop() {
@@ -347,8 +372,8 @@ int lua_get_spawn_condition(const char *zone, uint32 instance_id, int condition_
 	return quest_manager.get_spawn_condition(zone, instance_id, condition_id);
 }
 
-void lua_toggle_spawn_event(int event_id, bool enable, bool reset) {
-	quest_manager.toggle_spawn_event(event_id, enable, reset);
+void lua_toggle_spawn_event(int event_id, bool enable, bool strict, bool reset) {
+	quest_manager.toggle_spawn_event(event_id, enable, strict, reset);
 }
 
 void lua_summon_burried_player_corpse(uint32 char_id, float x, float y, float z, float h) {
@@ -600,16 +625,34 @@ int lua_merchant_count_item(uint32 npc_id, uint32 item_id) {
 }
 
 std::string lua_item_link(int item_id) {
-	char text[250];
+	char text[250] = { 0 };
 	quest_manager.varlink(text, item_id);
 
 	return std::string(text);
 }
 
-void lua_say_link(const char *phrase, bool silent, const char *link_name) {
+std::string lua_say_link(const char *phrase, bool silent, const char *link_name) {
 	char text[256] = { 0 };
 	strncpy(text, phrase, 255);
 	quest_manager.saylink(text, silent, link_name);
+
+	return std::string(text);
+}
+
+std::string lua_say_link(const char *phrase, bool silent) {
+	char text[256] = { 0 };
+	strncpy(text, phrase, 255);
+	quest_manager.saylink(text, silent, text);
+
+	return std::string(text);
+}
+
+std::string lua_say_link(const char *phrase) {
+	char text[256] = { 0 };
+	strncpy(text, phrase, 255);
+	quest_manager.saylink(text, false, text);
+
+	return std::string(text);
 }
 
 const char *lua_get_guild_name_by_id(uint32 guild_id) {
@@ -638,6 +681,14 @@ void lua_assign_group_to_instance(uint32 instance_id) {
 
 void lua_assign_raid_to_instance(uint32 instance_id) {
 	quest_manager.AssignRaidToInstance(instance_id);
+}
+
+void lua_remove_from_instance(uint32 instance_id) {
+	quest_manager.RemoveFromInstance(instance_id);
+}
+
+void lua_remove_all_from_instance(uint32 instance_id) {
+	quest_manager.RemoveAllFromInstance(instance_id);
 }
 
 void lua_flag_instance_by_group_leader(uint32 zone, uint32 version) {
@@ -761,6 +812,21 @@ int lua_get_zone_instance_version() {
 		return 0;
 
 	return zone->GetInstanceVersion();
+}
+
+luabind::object lua_get_characters_in_instance(lua_State *L, uint16 instance_id) {
+	luabind::object ret = luabind::newtable(L);
+
+	std::list<uint32> charid_list;
+	uint16 i = 1;
+	database.GetCharactersInInstance(instance_id,charid_list);
+	auto iter = charid_list.begin();
+	while(iter != charid_list.end()) {
+		ret[i] = *iter;
+		++i;
+		++iter;
+	}
+	return ret;
 }
 
 int lua_get_zone_weather() {
@@ -1019,6 +1085,25 @@ void lua_clear_opcode(int op) {
 	ClearMappedOpcode(static_cast<EmuOpcode>(op));
 }
 
+bool lua_enable_recipe(uint32 recipe_id) {
+	return quest_manager.EnableRecipe(recipe_id);
+}
+
+bool lua_disable_recipe(uint32 recipe_id) {
+	return quest_manager.DisableRecipe(recipe_id);
+}
+
+void lua_clear_npctype_cache(int npctype_id) {
+	quest_manager.ClearNPCTypeCache(npctype_id);
+}
+
+double lua_clock() {
+	timeval read_time;
+	gettimeofday(&read_time, nullptr);
+	uint32 t = read_time.tv_sec * 1000 + read_time.tv_usec / 1000;
+	return static_cast<double>(t) / 1000.0;
+}
+
 luabind::scope lua_register_general() {
 	return luabind::namespace_("eq")
 	[
@@ -1038,9 +1123,15 @@ luabind::scope lua_register_general() {
 		luabind::def("spawn_from_spawn2", (Lua_Mob(*)(uint32))&lua_spawn_from_spawn2),
 		luabind::def("enable_spawn2", &lua_enable_spawn2),
 		luabind::def("disable_spawn2", &lua_disable_spawn2),
-		luabind::def("set_timer", &lua_set_timer),
-		luabind::def("stop_timer", &lua_stop_timer),
-		luabind::def("stop_all_timers", &lua_stop_all_timers),
+		luabind::def("set_timer", (void(*)(const char*, int))&lua_set_timer),
+		luabind::def("set_timer", (void(*)(const char*, int, Lua_ItemInst))&lua_set_timer),
+		luabind::def("set_timer", (void(*)(const char*, int, Lua_Mob))&lua_set_timer),
+		luabind::def("stop_timer", (void(*)(const char*))&lua_stop_timer),
+		luabind::def("stop_timer", (void(*)(const char*, Lua_ItemInst))&lua_stop_timer),
+		luabind::def("stop_timer", (void(*)(const char*, Lua_Mob))&lua_stop_timer),
+		luabind::def("stop_all_timers", (void(*)(void))&lua_stop_all_timers),
+		luabind::def("stop_all_timers", (void(*)(Lua_ItemInst))&lua_stop_all_timers),
+		luabind::def("stop_all_timers", (void(*)(Lua_Mob))&lua_stop_all_timers),
 		luabind::def("depop", (void(*)(void))&lua_depop),
 		luabind::def("depop", (void(*)(int))&lua_depop),
 		luabind::def("depop_with_timer", (void(*)(void))&lua_depop_with_timer),
@@ -1131,14 +1222,19 @@ luabind::scope lua_register_general() {
 		luabind::def("merchant_set_item", (void(*)(uint32,uint32,uint32))&lua_merchant_set_item),
 		luabind::def("merchant_count_item", &lua_merchant_count_item),
 		luabind::def("item_link", &lua_item_link),
-		luabind::def("say_link", &lua_say_link),
+		luabind::def("say_link", (std::string(*)(const char*,bool,const char*))&lua_say_link),
+		luabind::def("say_link", (std::string(*)(const char*,bool))&lua_say_link),
+		luabind::def("say_link", (std::string(*)(const char*))&lua_say_link),
 		luabind::def("get_guild_name_by_id", &lua_get_guild_name_by_id),
 		luabind::def("create_instance", &lua_create_instance),
 		luabind::def("destroy_instance", &lua_destroy_instance),
 		luabind::def("get_instance_id", &lua_get_instance_id),
+		luabind::def("get_characters_in_instance", &lua_get_characters_in_instance),
 		luabind::def("assign_to_instance", &lua_assign_to_instance),
 		luabind::def("assign_group_to_instance", &lua_assign_group_to_instance),
 		luabind::def("assign_raid_to_instance", &lua_assign_raid_to_instance),
+		luabind::def("remove_from_instance", &lua_remove_from_instance),
+		luabind::def("remove_all_from_instance", &lua_remove_all_from_instance),
 		luabind::def("flag_instance_by_group_leader", &lua_flag_instance_by_group_leader),
 		luabind::def("flag_instance_by_raid_leader", &lua_flag_instance_by_raid_leader),
 		luabind::def("fly_mode", &lua_fly_mode),
@@ -1180,7 +1276,11 @@ luabind::scope lua_register_general() {
 		luabind::def("get_owner", &lua_get_owner),
 		luabind::def("get_quest_item", &lua_get_quest_item),
 		luabind::def("map_opcodes", &lua_map_opcodes),
-		luabind::def("clear_opcode", &lua_clear_opcode)
+		luabind::def("clear_opcode", &lua_clear_opcode),
+		luabind::def("enable_recipe", &lua_enable_recipe),
+		luabind::def("disable_recipe", &lua_disable_recipe),
+		luabind::def("clear_npctype_cache", &lua_clear_npctype_cache),
+		luabind::def("clock", &lua_clock)
 	];
 }
 
@@ -1321,16 +1421,19 @@ luabind::scope lua_register_material() {
 	return luabind::class_<Materials>("Material")
 		.enum_("constants")
 		[
-			luabind::value("Head", MATERIAL_HEAD),
-			luabind::value("Chest", MATERIAL_CHEST),
-			luabind::value("Arms", MATERIAL_ARMS),
-			luabind::value("Bracer", MATERIAL_BRACER),
-			luabind::value("Hands", MATERIAL_HANDS),
-			luabind::value("Legs", MATERIAL_LEGS),
-			luabind::value("Feet", MATERIAL_FEET),
-			luabind::value("Primary", MATERIAL_PRIMARY),
-			luabind::value("Secondary", MATERIAL_SECONDARY),
-			luabind::value("Max", MAX_MATERIALS)
+			luabind::value("Head", static_cast<int>(MaterialHead)),
+			luabind::value("Chest", static_cast<int>(MaterialChest)),
+			luabind::value("Arms", static_cast<int>(MaterialArms)),
+			luabind::value("Bracer", static_cast<int>(MaterialWrist)), // deprecated
+			luabind::value("Wrist", static_cast<int>(MaterialWrist)),
+			luabind::value("Hands", static_cast<int>(MaterialHands)),
+			luabind::value("Legs", static_cast<int>(MaterialLegs)),
+			luabind::value("Feet", static_cast<int>(MaterialFeet)),
+			luabind::value("Primary", static_cast<int>(MaterialPrimary)),
+			luabind::value("Secondary", static_cast<int>(MaterialSecondary)),
+			luabind::value("Max", static_cast<int>(_MaterialCount)), // deprecated
+			luabind::value("Count", static_cast<int>(_MaterialCount)),
+			luabind::value("Invalid", static_cast<int>(_MaterialInvalid))
 		];
 }
 

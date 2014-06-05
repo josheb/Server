@@ -30,6 +30,10 @@
 #ifdef FREEBSD //Timothy Whitman - January 7, 2003
 	#define MSG_NOSIGNAL 0
 #endif
+#ifdef DARWIN
+	#define MSG_NOSIGNAL SO_NOSIGPIPE // Corysia Taware - Sept. 27, 2013
+	// See http://lists.apple.com/archives/macnetworkprog/2002/Dec/msg00091.html
+#endif	// DARWIN
 
 #ifdef _WINDOWS
 InitWinsock winsock;
@@ -539,7 +543,7 @@ bool TCPConnection::Process() {
 		if (!RecvData(errbuf)) {
 			struct in_addr	in;
 			in.s_addr = GetrIP();
-			//cout << inet_ntoa(in) << ":" << GetrPort() << ": " << errbuf << endl;
+			//std::cout << inet_ntoa(in) << ":" << GetrPort() << ": " << errbuf << std::endl;
 			return false;
 		}
 		/* we break to do the send */
@@ -904,7 +908,6 @@ ThreadReturnType TCPConnection::TCPConnectionLoop(void* tmp) {
 	while (tcpc->RunLoop()) {
 		Sleep(LOOP_GRANULARITY);
 		if (!tcpc->ConnectReady()) {
-			_CP(TCPConnectionLoop);
 			if (!tcpc->Process()) {
 				//the processing loop has detecting an error..
 				//we want to drop the link immediately, so we clear buffers too.
@@ -914,7 +917,6 @@ ThreadReturnType TCPConnection::TCPConnectionLoop(void* tmp) {
 			Sleep(1);
 		}
 		else if (tcpc->GetAsyncConnect()) {
-			_CP(TCPConnectionLoop);
 			if (tcpc->charAsyncConnect)
 				tcpc->Connect(tcpc->charAsyncConnect, tcpc->GetrPort());
 			else

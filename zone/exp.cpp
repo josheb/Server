@@ -326,7 +326,18 @@ void Client::SetEXP(uint32 set_exp, uint32 set_aaxp, bool isrezzexp) {
 		}
 		else
 			Message(15, "Welcome to level %i!", check_level);
+
+#ifdef BOTS
+		uint8 myoldlevel = GetLevel();
+#endif
+
 		SetLevel(check_level);
+
+#ifdef BOTS
+		if(RuleB(Bots, BotLevelsWithOwner))
+			// hack way of doing this..but, least invasive... (same criteria as gain level for sendlvlapp)
+			Bot::LevelBotWithClient(this, GetLevel(), (myoldlevel==check_level-1));
+#endif
 	}
 
 	//If were at max level then stop gaining experience if we make it to the cap
@@ -530,14 +541,8 @@ void Group::SplitExp(uint32 exp, Mob* other) {
 	}
 
 	float groupmod;
-	if (membercount == 2)
-		groupmod = 1.2;
-	else if (membercount == 3)
-		groupmod = 1.4;
-	else if (membercount == 4)
-		groupmod = 1.6;
-	else if (membercount == 5)
-		groupmod = 1.8;
+	if (membercount > 1 && membercount < 6)
+		groupmod = 1 + .2*(membercount - 1); //2members=1.2exp, 3=1.4, 4=1.6, 5=1.8
 	else if (membercount == 6)
 		groupmod = 2.16;
 	else

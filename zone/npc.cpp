@@ -148,7 +148,7 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 	logging_enabled = NPC_DEFAULT_LOGGING_ENABLED;
 
 	pAggroRange = d->aggroradius;
-	pAssistRange = GetAggroRange();
+	pAssistRange = d->assistradius;
 	findable = d->findable;
 	trackable = d->trackable;
 
@@ -158,6 +158,7 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 	FR = d->FR;
 	PR = d->PR;
 	Corrup = d->Corrup;
+	PhR = d->PhR;
 
 	STR = d->STR;
 	STA = d->STA;
@@ -199,6 +200,7 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 	SetMana(GetMaxMana());
 
 	MerchantType = d->merchanttype;
+	merchant_open = GetClass() == MERCHANT;
 	adventure_template_id = d->adventure_template;
 	org_x = x;
 	org_y = y;
@@ -216,16 +218,20 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 	roambox_min_y = -2;
 	roambox_movingto_x = -2;
 	roambox_movingto_y = -2;
+	roambox_min_delay = 1000;
 	roambox_delay = 1000;
 	org_heading = heading;
 	p_depop = false;
 	loottable_id = d->loottable_id;
+
+	no_target_hotkey = d->no_target_hotkey;
 
 	primary_faction = 0;
 	SetNPCFactionID(d->npc_faction_id);
 
 	npc_spells_id = 0;
 	HasAISpell = false;
+	HasAISpellEffects = false;
 
 	if(GetClass() == MERCERNARY_MASTER && RuleB(Mercs, AllowMercs))
 	{
@@ -266,7 +272,7 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 	//give NPCs skill values...
 	int r;
 	for(r = 0; r <= HIGHEST_SKILL; r++) {
-		skills[r] = database.GetSkillCap(GetClass(),(SkillType)r,moblevel);
+		skills[r] = database.GetSkillCap(GetClass(),(SkillUseTypes)r,moblevel);
 	}
 
 	if(d->trap_template > 0)
@@ -280,12 +286,8 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 			trap_list = trap_ent_iter->second;
 			if(trap_list.size() > 0)
 			{
-				uint16 count = MakeRandomInt(0, (trap_list.size()-1));
 				std::list<LDoNTrapTemplate*>::iterator trap_list_iter = trap_list.begin();
-				for(int x = 0; x < count; ++x)
-				{
-					trap_list_iter++;
-				}
+				std::advance(trap_list_iter, MakeRandomInt(0, trap_list.size() - 1));
 				LDoNTrapTemplate* tt = (*trap_list_iter);
 				if(tt)
 				{
@@ -357,7 +359,6 @@ NPC::NPC(const NPCType* d, Spawn2* in_respawn, float x, float y, float z, float 
 
 NPC::~NPC()
 {
-	entity_list.RemoveNPC(GetID());
 	AI_Stop();
 
 	if(proximity != nullptr) {
@@ -365,16 +366,13 @@ NPC::~NPC()
 		safe_delete(proximity);
 	}
 
-	//clear our spawn limit record if we had one.
-	entity_list.LimitRemoveNPC(this);
-
 	safe_delete(NPCTypedata_ours);
 
 	{
 	ItemList::iterator cur,end;
 	cur = itemlist.begin();
 	end = itemlist.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		ServerLootItem_Struct* item = *cur;
 		safe_delete(item);
 	}
@@ -385,7 +383,7 @@ NPC::~NPC()
 	std::list<struct NPCFaction*>::iterator cur,end;
 	cur = faction_list.begin();
 	end = faction_list.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		struct NPCFaction* fac = *cur;
 		safe_delete(fac);
 	}
@@ -424,7 +422,7 @@ ServerLootItem_Struct* NPC::GetItem(int slot_id) {
 	ItemList::iterator cur,end;
 	cur = itemlist.begin();
 	end = itemlist.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		ServerLootItem_Struct* item = *cur;
 		if (item->equipSlot == slot_id) {
 			return item;
@@ -437,14 +435,14 @@ void NPC::RemoveItem(uint32 item_id, uint16 quantity, uint16 slot) {
 	ItemList::iterator cur,end;
 	cur = itemlist.begin();
 	end = itemlist.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		ServerLootItem_Struct* item = *cur;
 		if (item->item_id == item_id && slot <= 0 && quantity <= 0) {
 			itemlist.erase(cur);
 			return;
 		}
 		else if (item->item_id == item_id && item->equipSlot == slot && quantity >= 1) {
-			//cout<<"NPC::RemoveItem"<<" equipSlot:"<<iterator.GetData()->equipSlot<<" quantity:"<< quantity<<endl;
+			//std::cout<<"NPC::RemoveItem"<<" equipSlot:"<<iterator.GetData()->equipSlot<<" quantity:"<< quantity<<std::endl; // iterator undefined [CODEBUG]
 			if (item->charges <= quantity)
 				itemlist.erase(cur);
 			else
@@ -477,7 +475,7 @@ void NPC::CheckMinMaxLevel(Mob *them)
 			cur = itemlist.erase(cur);
 			continue;
 		}
-		cur++;
+		++cur;
 	}
 
 }
@@ -486,7 +484,7 @@ void NPC::ClearItemList() {
 	ItemList::iterator cur,end;
 	cur = itemlist.begin();
 	end = itemlist.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		ServerLootItem_Struct* item = *cur;
 		safe_delete(item);
 	}
@@ -500,7 +498,7 @@ void NPC::QueryLoot(Client* to) {
 	ItemList::iterator cur,end;
 	cur = itemlist.begin();
 	end = itemlist.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		const Item_Struct* item = database.GetItem((*cur)->item_id);
 		if (item)
 			if (to->GetClientVersion() >= EQClientRoF)
@@ -560,9 +558,6 @@ void NPC::RemoveCash() {
 
 bool NPC::Process()
 {
-	_ZP(NPC_Process);
-
-	adverrorinfo = 1;
 	if (IsStunned() && stunned_timer.Check())
 	{
 		this->stunned = false;
@@ -582,8 +577,6 @@ bool NPC::Process()
 		}
 		return false;
 	}
-
-	adverrorinfo = 2;
 
 	SpellProcess();
 
@@ -669,6 +662,9 @@ bool NPC::Process()
 		if(viral_timer_counter > 999)
 			viral_timer_counter = 0;
 	}
+
+	if(projectile_timer.Check())
+		SpellProjectileEffect();
 
 	if(spellbonuses.GravityEffect == 1) {
 		if(gravity_timer.Check())
@@ -1203,7 +1199,7 @@ uint32 ZoneDatabase::NPCSpawnDB(uint8 command, const char* zone, uint32 zone_ver
 
 int32 NPC::GetEquipmentMaterial(uint8 material_slot) const
 {
-	if (material_slot >= MAX_MATERIALS)
+	if (material_slot >= _MaterialCount)
 		return 0;
 
 	int inv_slot = Inventory::CalcSlotFromMaterial(material_slot);
@@ -1211,13 +1207,13 @@ int32 NPC::GetEquipmentMaterial(uint8 material_slot) const
 		return 0;
 	if(equipment[inv_slot] == 0) {
 		switch(material_slot) {
-		case MATERIAL_HEAD:
+		case MaterialHead:
 			return helmtexture;
-		case MATERIAL_CHEST:
+		case MaterialChest:
 			return texture;
-		case MATERIAL_PRIMARY:
+		case MaterialPrimary:
 			return d_meele_texture1;
-		case MATERIAL_SECONDARY:
+		case MaterialSecondary:
 			return d_meele_texture2;
 		default:
 			//they have nothing in the slot, and its not a special slot... they get nothing.
@@ -1245,7 +1241,7 @@ uint32 NPC::GetMaxDamage(uint8 tlevel)
 
 void NPC::PickPocket(Client* thief) {
 
-	thief->CheckIncreaseSkill(PICK_POCKETS, nullptr, 5);
+	thief->CheckIncreaseSkill(SkillPickPockets, nullptr, 5);
 
 	//make sure were allowed to targte them:
 	int olevel = GetLevel();
@@ -1264,7 +1260,7 @@ void NPC::PickPocket(Client* thief) {
 		return;
 	}
 
-	int steal_skill = thief->GetSkill(PICK_POCKETS);
+	int steal_skill = thief->GetSkill(SkillPickPockets);
 	int stealchance = steal_skill*100/(5*olevel+5);
 	ItemInst* inst = 0;
 	int x = 0;
@@ -1291,7 +1287,7 @@ void NPC::PickPocket(Client* thief) {
 		ItemList::iterator cur,end;
 		cur = itemlist.begin();
 		end = itemlist.end();
-		for(; cur != end && x < 49; cur++) {
+		for(; cur != end && x < 49; ++cur) {
 			ServerLootItem_Struct* citem = *cur;
 			const Item_Struct* item = database.GetItem(citem->item_id);
 			if (item)
@@ -1539,6 +1535,12 @@ void Mob::NPCSpecialAttacks(const char* parse, int permtag, bool reset, bool rem
 			case 'i':
 				SetSpecialAbility(IMMUNE_TAUNT, remove ? 0 : 1);
 				break;
+			case 'e':
+				SetSpecialAbility(ALWAYS_FLEE, remove ? 0 : 1);
+				break;
+			case 'h':
+				SetSpecialAbility(FLEE_PERCENT, remove ? 0 : 1);
+				break;
 
 			default:
 				break;
@@ -1699,7 +1701,14 @@ bool Mob::HasNPCSpecialAtk(const char* parse) {
 					HasAllAttacks = false;
 				}
 				break;
-
+			case 'e':
+				if(!GetSpecialAbility(ALWAYS_FLEE))
+					HasAllAttacks = false;
+				break;
+			case 'h':
+				if(!GetSpecialAbility(FLEE_PERCENT))
+					HasAllAttacks = false;
+				break;
 			default:
 				HasAllAttacks = false;
 				break;
@@ -1713,6 +1722,22 @@ bool Mob::HasNPCSpecialAtk(const char* parse) {
 void NPC::FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho)
 {
 	Mob::FillSpawnStruct(ns, ForWho);
+
+	//Basic settings to make sure swarm pets work properly.
+	if  (GetSwarmOwner()) {
+		Client *c = entity_list.GetClientByID(GetSwarmOwner());
+			if(c) {
+				SetAllowBeneficial(1); //Allow client cast swarm pets to be heal/buffed.
+				//This is a hack to allow CLIENT swarm pets NOT to be targeted with F8. Warning: Will turn name 'Yellow'!
+				if (RuleB(Pets, SwarmPetNotTargetableWithHotKey))
+					ns->spawn.IsMercenary = 1;
+			}
+			//NPC cast swarm pets should still be targetable with F8.
+			else
+				ns->spawn.IsMercenary = 0;
+	}
+	
+	//Not recommended if using above (However, this will work better on older clients).
 	if (RuleB(Pets, UnTargetableSwarmPet)) {
 		if(GetOwnerID() || GetSwarmOwner()) {
 			ns->spawn.is_pet = 1;
@@ -1861,6 +1886,12 @@ void NPC::ModifyNPCStat(const char *identifier, const char *newValue)
 		return;
 	}
 
+	if(id == "PhR")
+	{
+		PhR = atoi(val.c_str());
+		return;
+	}
+
 	if(id == "runspeed")
 	{
 		runspeed = (float)atof(val.c_str());
@@ -1974,7 +2005,7 @@ void NPC::ModifyNPCStat(const char *identifier, const char *newValue)
 
 	if(id == "slow_mitigation")
 	{
-		slow_mitigation = atof(val.c_str());
+		slow_mitigation = atoi(val.c_str());
 		return;
 	}
 	if(id == "loottable_id")
@@ -2057,6 +2088,8 @@ void NPC::CalcNPCResists() {
 		PR = (GetLevel() * 11)/10;
 	if (!Corrup)
 		Corrup = 15;
+	if (!PhR)
+		PhR = 10;
 	return;
 }
 
@@ -2321,8 +2354,6 @@ bool NPC::CanTalk()
 //iOther the mob who is doing the looking. It should figure out
 //what iOther thinks about 'this'
 FACTION_VALUE NPC::GetReverseFactionCon(Mob* iOther) {
-	_ZP(NPC_GetReverseFactionCon);
-
 	iOther = iOther->GetOwnerOrSelf();
 	int primaryFaction= iOther->GetPrimaryFaction();
 
@@ -2358,7 +2389,7 @@ FACTION_VALUE NPC::CheckNPCFactionAlly(int32 other_faction) {
 	std::list<struct NPCFaction*>::iterator cur,end;
 	cur = faction_list.begin();
 	end = faction_list.end();
-	for(; cur != end; cur++) {
+	for(; cur != end; ++cur) {
 		struct NPCFaction* fac = *cur;
 		if ((int32)fac->factionID == other_faction) {
 			if (fac->npc_value > 0)

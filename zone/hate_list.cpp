@@ -27,7 +27,7 @@
 #include "hate_list.h"
 #include "QuestParserCollection.h"
 #include "zone.h"
-#include "watermap.h"
+#include "water_map.h"
 
 extern Zone *zone;
 
@@ -60,14 +60,16 @@ void HateList::Wipe()
 	while(iterator != list.end())
 	{
 		Mob* m = (*iterator)->ent;
-		parse->EventNPC(EVENT_HATE_LIST, owner->CastToNPC(), m, "0", 0);
-		//iterator
+		if(m)
+		{
+			parse->EventNPC(EVENT_HATE_LIST, owner->CastToNPC(), m, "0", 0);
 
+			if(m->IsClient())
+				m->CastToClient()->DecrementAggroCount();
+		}
 		delete (*iterator);
 		iterator = list.erase(iterator);
 
-		if(m->IsClient())
-			m->CastToClient()->DecrementAggroCount();
 	}
 }
 
@@ -80,7 +82,6 @@ bool HateList::IsOnHateList(Mob *mob)
 
 tHateEntry *HateList::Find(Mob *ent)
 {
-	_ZP(HateList_Find);
 	auto iterator = list.begin();
 	while(iterator != list.end())
 	{
@@ -105,7 +106,6 @@ void HateList::Set(Mob* other, uint32 in_hate, uint32 in_dam)
 
 Mob* HateList::GetDamageTop(Mob* hater)
 {
-	_ZP(HateList_GetDamageTop);
 	Mob* current = nullptr;
 	Group* grp = nullptr;
 	Raid* r = nullptr;
@@ -149,7 +149,6 @@ Mob* HateList::GetDamageTop(Mob* hater)
 }
 
 Mob* HateList::GetClosest(Mob *hater) {
-	_ZP(HateList_GetClosest);
 	Mob* close = nullptr;
 	float closedist = 99999.9f;
 	float thisdist;
@@ -164,7 +163,7 @@ Mob* HateList::GetClosest(Mob *hater) {
 		++iterator;
 	}
 
-	if (close == 0 && hater->IsNPC())
+	if (close == 0 && hater->IsNPC() || close->DivineAura())
 		close = hater->CastToNPC()->GetHateTop();
 
 	return close;
@@ -206,6 +205,9 @@ void HateList::Add(Mob *ent, int32 in_hate, int32 in_dam, bool bFrenzy, bool iAd
 
 bool HateList::RemoveEnt(Mob *ent)
 {
+	if (!ent)
+		return false;
+
 	bool found = false;
 	auto iterator = list.begin();
 
@@ -213,15 +215,18 @@ bool HateList::RemoveEnt(Mob *ent)
 	{
 		if((*iterator)->ent == ent)
 		{
+			if(ent)
 			parse->EventNPC(EVENT_HATE_LIST, owner->CastToNPC(), ent, "0", 0);
-			delete (*iterator);
-			iterator = list.erase(iterator);
 			found = true;
 
-			if(ent->IsClient())
+			
+			if(ent && ent->IsClient())
 				ent->CastToClient()->DecrementAggroCount();
 
-			}
+			delete (*iterator);
+			iterator = list.erase(iterator);
+
+		}
 		else
 			++iterator;
 	}
@@ -229,7 +234,6 @@ bool HateList::RemoveEnt(Mob *ent)
 }
 
 void HateList::DoFactionHits(int32 nfl_id) {
-	_ZP(HateList_DoFactionHits);
 	if (nfl_id <= 0)
 		return;
 	auto iterator = list.begin();
@@ -248,11 +252,32 @@ void HateList::DoFactionHits(int32 nfl_id) {
 	}
 }
 
+int HateList::SummonedPetCount(Mob *hater) {
+
+	//Function to get number of 'Summoned' pets on a targets hate list to allow calculations for certian spell effects.
+	//Unclear from description that pets are required to be 'summoned body type'. Will not require at this time.
+	int petcount = 0;
+	auto iterator = list.begin();
+	while(iterator != list.end()) {
+
+		if((*iterator)->ent != nullptr && (*iterator)->ent->IsNPC() && 	((*iterator)->ent->CastToNPC()->IsPet() || ((*iterator)->ent->CastToNPC()->GetSwarmOwner() > 0))) 
+		{
+			++petcount;
+		}
+		
+		++iterator;
+	}
+
+	return petcount;
+}
+
 Mob *HateList::GetTop(Mob *center)
 {
-	_ZP(HateList_GetTop);
 	Mob* top = nullptr;
 	int32 hate = -1;
+
+	if(center == nullptr)
+		return nullptr;
 
 	if (RuleB(Aggro,SmartAggroList)){
 		Mob* topClientTypeInRange = nullptr;
@@ -366,15 +391,15 @@ Mob *HateList::GetTop(Mob *center)
 			}
 
 			if(!isTopClientType)
-				return topClientTypeInRange;
+				return topClientTypeInRange ? topClientTypeInRange : nullptr;
 
-			return top;
+			return top ? top : nullptr;
 		}
 		else {
 			if(top == nullptr && skipped_count > 0) {
-				return center->GetTarget();
+				return center->GetTarget() ? center->GetTarget() : nullptr;
 			}
-			return top;
+			return top ? top : nullptr;
 		}
 	}
 	else{
@@ -399,15 +424,14 @@ Mob *HateList::GetTop(Mob *center)
 			++iterator;
 		}
 		if(top == nullptr && skipped_count > 0) {
-			return center->GetTarget();
+			return center->GetTarget() ? center->GetTarget() : nullptr;
 		}
-		return top;
+		return top ? top : nullptr;
 	}
+	return nullptr;
 }
 
 Mob *HateList::GetMostHate(){
-	_ZP(HateList_GetMostHate);
-
 	Mob* top = nullptr;
 	int32 hate = -1;
 
@@ -429,6 +453,17 @@ Mob *HateList::GetMostHate(){
 Mob *HateList::GetRandom()
 {
 	int count = list.size();
+	if(count == 0) //If we don't have any entries it'll crash getting a random 0, -1 position.
+		return NULL;
+
+	if(count == 1) //No need to do all that extra work if we only have one hate entry
+	{
+		if(*list.begin()) // Just in case tHateEntry is invalidated somehow...
+			return (*list.begin())->ent;
+
+		return NULL;
+	}
+
 	auto iterator = list.begin();
 	int random = MakeRandomInt(0, count - 1);
 	for (int i = 0; i < random; i++)
@@ -453,8 +488,6 @@ int32 HateList::GetEntHate(Mob *ent, bool damage)
 
 //looking for any mob with hate > -1
 bool HateList::IsEmpty() {
-	_ZP(HateList_IsEmpty);
-
 	return(list.size() == 0);
 }
 

@@ -1898,7 +1898,7 @@ XS(XS_Client_GetSkill)
 		Client *		THIS;
 		uint16		RETVAL;
 		dXSTARG;
-		SkillType		skill_id = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skill_id = (SkillUseTypes)SvUV(ST(1));
 
 		if (sv_derived_from(ST(0), "Client")) {
 			IV tmp = SvIV((SV*)SvRV(ST(0)));
@@ -1925,7 +1925,7 @@ XS(XS_Client_GetRawSkill)
 		Client *		THIS;
 		uint32		RETVAL;
 		dXSTARG;
-		SkillType		skill_id = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skill_id = (SkillUseTypes)SvUV(ST(1));
 
 		if (sv_derived_from(ST(0), "Client")) {
 			IV tmp = SvIV((SV*)SvRV(ST(0)));
@@ -1951,7 +1951,7 @@ XS(XS_Client_HasSkill)
 	{
 		Client *		THIS;
 		bool		RETVAL;
-		SkillType		skill_id = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skill_id = (SkillUseTypes)SvUV(ST(1));
 
 		if (sv_derived_from(ST(0), "Client")) {
 			IV tmp = SvIV((SV*)SvRV(ST(0)));
@@ -1978,7 +1978,7 @@ XS(XS_Client_CanHaveSkill)
 	{
 		Client *		THIS;
 		bool		RETVAL;
-		SkillType		skill_id = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skill_id = (SkillUseTypes)SvUV(ST(1));
 
 		if (sv_derived_from(ST(0), "Client")) {
 			IV tmp = SvIV((SV*)SvRV(ST(0)));
@@ -2004,7 +2004,7 @@ XS(XS_Client_SetSkill)
 		Perl_croak(aTHX_ "Usage: Client::SetSkill(THIS, skill_num, value)");
 	{
 		Client *		THIS;
-		SkillType		skill_num = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skill_num = (SkillUseTypes)SvUV(ST(1));
 		uint16		value = (uint16)SvUV(ST(2));
 
 		if (sv_derived_from(ST(0), "Client")) {
@@ -2029,7 +2029,7 @@ XS(XS_Client_AddSkill)
 		Perl_croak(aTHX_ "Usage: Client::AddSkill(THIS, skillid, value)");
 	{
 		Client *		THIS;
-		SkillType		skillid = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skillid = (SkillUseTypes)SvUV(ST(1));
 		uint16		value = (uint16)SvUV(ST(2));
 
 		if (sv_derived_from(ST(0), "Client")) {
@@ -2079,7 +2079,7 @@ XS(XS_Client_CheckIncreaseSkill)
 	{
 		Client *		THIS;
 		bool		RETVAL;
-		SkillType		skillid = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skillid = (SkillUseTypes)SvUV(ST(1));
 		int		chancemodi;
 
 		if (sv_derived_from(ST(0), "Client")) {
@@ -2138,7 +2138,7 @@ XS(XS_Client_MaxSkill)
 	{
 		Client *		THIS;
 		uint16			RETVAL;
-		SkillType		skillid = (SkillType)SvUV(ST(1));
+		SkillUseTypes		skillid = (SkillUseTypes)SvUV(ST(1));
 		uint16			class_ = 0;
 		uint16			level = 0;
 		dXSTARG;
@@ -3049,7 +3049,7 @@ XS(XS_Client_SummonItem)
 	{
 		Client *		THIS;
 		uint32		item_id = (uint32)SvUV(ST(1));
-		int16		charges = 0;
+		int16		charges = -1;
 		bool		attune = false;
 		uint32		aug1 = 0;
 		uint32		aug2 = 0;
@@ -5792,6 +5792,30 @@ XS(XS_Client_SetThirst)
    XSRETURN_EMPTY;
 }
 
+XS(XS_Client_SendTargetCommand); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Client_SendTargetCommand)
+{
+   dXSARGS;
+   if (items != 2)
+       Perl_croak(aTHX_ "Usage: Client::SendTargetCommand(THIS, in_entid)");
+   {
+       Client *        THIS;
+       int32           in_entid = (uint32)SvUV(ST(1));
+
+       if (sv_derived_from(ST(0), "Client")) {
+           IV tmp = SvIV((SV*)SvRV(ST(0)));
+           THIS = INT2PTR(Client *,tmp);
+       }
+       else
+           Perl_croak(aTHX_ "THIS is not of type Client");
+       if(THIS == nullptr)
+           Perl_croak(aTHX_ "THIS is nullptr, avoiding crash.");
+
+       THIS->SendTargetCommand(in_entid);
+   }
+   XSRETURN_EMPTY;
+}
+
 XS(XS_Client_SetConsumption); /* prototype to pass -Wmissing-prototypes */
 XS(XS_Client_SetConsumption)
 {
@@ -5815,6 +5839,121 @@ XS(XS_Client_SetConsumption)
        THIS->SetConsumption(in_hunger, in_thirst);
    }
    XSRETURN_EMPTY;
+}
+
+XS(XS_Client_SilentMessage); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Client_SilentMessage)
+{
+        dXSARGS;
+        if (items != 2)
+                Perl_croak(aTHX_ "Usage: Client::SilentMessage(THIS, Message)");
+        {
+                Client *                THIS;
+                dXSTARG;
+ 
+                if (sv_derived_from(ST(0), "Client")) {
+                        IV tmp = SvIV((SV*)SvRV(ST(0)));
+                        THIS = INT2PTR(Client *,tmp);
+                }
+                else
+                        Perl_croak(aTHX_ "THIS is not of type Client");
+                if(THIS == NULL)
+                        Perl_croak(aTHX_ "THIS is NULL, avoiding crash.");
+                if(THIS->GetTarget() != NULL){
+                        if(THIS->GetTarget()->IsNPC()){
+                                if (THIS->DistNoRootNoZ(*THIS->GetTarget()) <= 200) {
+                                                if(THIS->GetTarget()->CastToNPC()->IsMoving() && !THIS->GetTarget()->CastToNPC()->IsOnHatelist(THIS->GetTarget()))
+                                                        THIS->GetTarget()->CastToNPC()->PauseWandering(RuleI(NPC, SayPauseTimeInSec));
+                                        THIS->ChannelMessageReceived(8, 0, 100, SvPV_nolen(ST(1)));
+                                }
+                        }
+                }
+        }
+        XSRETURN_EMPTY;
+}
+
+XS(XS_Client_PlayMP3); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Client_PlayMP3)
+{
+	dXSARGS;
+	if (items < 1 || items > 2)
+		Perl_croak(aTHX_ "Usage: Client::PlayMP3(THIS, fname)");
+	{
+		Client *	THIS;
+		char *		fname = nullptr;
+
+		if (sv_derived_from(ST(0), "Client")) {
+			IV tmp = SvIV((SV*)SvRV(ST(0)));
+			THIS = INT2PTR(Client *,tmp);
+		}
+		else
+			Perl_croak(aTHX_ "THIS is not of type Mob");
+		if(THIS == nullptr)
+			Perl_croak(aTHX_ "THIS is nullptr, avoiding crash.");
+
+		if (items > 1)	{	fname = (char *)SvPV_nolen(ST(1));	}
+
+		THIS->PlayMP3(fname);
+	}
+	XSRETURN_EMPTY;
+}
+
+XS(XS_Client_ExpeditionMessage); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Client_ExpeditionMessage)
+{
+	dXSARGS;
+	if (items != 3)
+		Perl_croak(aTHX_ "Usage: Client::ExpeditionMessage(THIS, ExpdID, Message)");
+	{
+		Client *		THIS;
+		int ExpdID =	(int)SvUV(ST(1));
+		const char *	Message = (const char *)SvPV_nolen(ST(2));
+		dXSTARG;
+
+		if (sv_derived_from(ST(0), "Client")) {
+			IV tmp = SvIV((SV*)SvRV(ST(0)));
+			THIS = INT2PTR(Client *,tmp);
+		}
+		else
+			Perl_croak(aTHX_ "THIS is not of type Client");
+		if(THIS == NULL)
+			Perl_croak(aTHX_ "THIS is NULL, avoiding crash.");
+
+		THIS->ExpeditionSay(Message, ExpdID);
+	}
+	XSRETURN_EMPTY;
+}
+
+//Client::SendMarqueeMessage(uint32 type, uint32 priority, uint32 fade_in, uint32 fade_out, uint32 duration, std::string msg)
+
+XS(XS_Client_SendMarqueeMessage); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Client_SendMarqueeMessage)
+{
+	dXSARGS;
+	if (items != 7)
+		Perl_croak(aTHX_ "Usage: Client::SendMarqueeMessage(THIS, type, priority, fade_in, fade_out, duration, msg)");
+	{
+		Client *		THIS;
+		uint32 type =	(uint32)SvUV(ST(1));
+		uint32 priority =	(uint32)SvUV(ST(2));
+		uint32 fade_in =	(uint32)SvUV(ST(3));
+		uint32 fade_out =	(uint32)SvUV(ST(4));
+		uint32 duration =	(uint32)SvUV(ST(5));
+		std::string msg = (std::string)SvPV_nolen(ST(6));
+		dXSTARG;
+
+		if (sv_derived_from(ST(0), "Client")) {
+			IV tmp = SvIV((SV*)SvRV(ST(0)));
+			THIS = INT2PTR(Client *,tmp);
+		}
+		else
+			Perl_croak(aTHX_ "THIS is not of type Client");
+		if(THIS == NULL)
+			Perl_croak(aTHX_ "THIS is NULL, avoiding crash.");
+
+		THIS->SendMarqueeMessage(type, priority, fade_in, fade_out, duration, msg);
+	}
+	XSRETURN_EMPTY;
 }
 
 #ifdef __cplusplus
@@ -6050,6 +6189,11 @@ XS(boot_Client)
         newXSproto(strcpy(buf, "SetHunger"), XS_Client_SetHunger, file, "$$");
         newXSproto(strcpy(buf, "SetThirst"), XS_Client_SetThirst, file, "$$");
         newXSproto(strcpy(buf, "SetConsumption"), XS_Client_SetConsumption, file, "$$$");
+		newXSproto(strcpy(buf, "SilentMessage"), XS_Client_SilentMessage, file, "$$");
+		newXSproto(strcpy(buf, "PlayMP3"), XS_Client_PlayMP3, file, "$;$");
+		newXSproto(strcpy(buf, "SendTargetCommand"), XS_Client_SendTargetCommand, file, "$$");
+		newXSproto(strcpy(buf, "ExpeditionMessage"), XS_Client_ExpeditionMessage, file, "$$$");
+		newXSproto(strcpy(buf, "SendMarqueeMessage"), XS_Client_SendMarqueeMessage, file, "$$$$$$$");
 		XSRETURN_YES;
 }
 

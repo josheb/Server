@@ -193,7 +193,10 @@ uint32 AppendAnyLenString(char** ret, uint32* bufsize, uint32* strlen, const cha
 	return *strlen;
 }
 
-uint32 hextoi(char* num) {
+uint32 hextoi(const char* num) {
+	if (num == nullptr)
+		return 0;
+
 	int len = strlen(num);
 	if (len < 3)
 		return 0;
@@ -217,7 +220,10 @@ uint32 hextoi(char* num) {
 	return ret;
 }
 
-uint64 hextoi64(char* num) {
+uint64 hextoi64(const char* num) {
+	if (num == nullptr)
+		return 0;
+
 	int len = strlen(num);
 	if (len < 3)
 		return 0;
@@ -241,7 +247,10 @@ uint64 hextoi64(char* num) {
 	return ret;
 }
 
-bool atobool(char* iBool) {
+bool atobool(const char* iBool) {
+
+	if (iBool == nullptr)
+		return false;
 	if (!strcasecmp(iBool, "true"))
 		return true;
 	if (!strcasecmp(iBool, "false"))
@@ -336,5 +345,42 @@ std::vector<std::string> SplitString(const std::string &str, char delim) {
         ret.push_back(item);
     }
 	
+	return ret;
+}
+
+std::string EscapeString(const std::string &s) {
+	std::string ret;
+
+	size_t sz = s.length();
+	for(size_t i = 0; i < sz; ++i) {
+		char c = s[i];
+		switch(c) {
+		case '\x00':
+			ret += "\\x00";
+			break;
+		case '\n':
+			ret += "\\n";
+			break;
+		case '\r':
+			ret += "\\r";
+			break;
+		case '\\':
+			ret += "\\\\";
+			break;
+		case '\'':
+			ret += "\\'";
+			break;
+		case '\"':
+			ret += "\\\"";
+			break;
+		case '\x1a':
+			ret += "\\x1a";
+			break;
+		default:
+			ret.push_back(c);
+			break;
+		}
+	}
+
 	return ret;
 }

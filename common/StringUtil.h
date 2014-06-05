@@ -24,18 +24,18 @@
 
 void vStringFormat(std::string& output, const char* format, va_list args);
 void StringFormat(std::string& output, const char* format, ...);
+std::string EscapeString(const std::string &s);
 
 const char *MakeLowerString(const char *source);
 
 void MakeLowerString(const char *source, char *target);
 
-
 int MakeAnyLenString(char** ret, const char* format, ...);
 uint32 AppendAnyLenString(char** ret, uint32* bufsize, uint32* strlen, const char* format, ...);
 
-uint32 hextoi(char* num);
-uint64 hextoi64(char* num);
-bool atobool(char* iBool);
+uint32 hextoi(const char* num);
+uint64 hextoi64(const char* num);
+bool atobool(const char* iBool);
 
 char* strn0cpy(char* dest, const char* source, uint32 size);
 		// return value =true if entire string(source) fit, false if it was truncated

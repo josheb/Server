@@ -1678,14 +1678,15 @@ XS(XS__toggle_spawn_event);
 XS(XS__toggle_spawn_event)
 {
 	dXSARGS;
-	if (items != 2)
-		Perl_croak(aTHX_ "Usage: toggle_spawn_event(event_id, enabled?, reset_base)");
+	if (items != 4)
+		Perl_croak(aTHX_ "Usage: toggle_spawn_event(event_id, enabled?, strict, reset_base)");
 
 	uint32	event_id = (int)SvIV(ST(0));
 	bool	enabled = ((int)SvIV(ST(1))) == 0?false:true;
-	bool	reset_base = ((int)SvIV(ST(1))) == 0?false:true;
+	bool	strict = ((int)SvIV(ST(2))) == 0?false:true;
+	bool	reset_base = ((int)SvIV(ST(3))) == 0?false:true;
 
-	quest_manager.toggle_spawn_event(event_id, enabled, reset_base);
+	quest_manager.toggle_spawn_event(event_id, enabled, strict, reset_base);
 
 	XSRETURN_EMPTY;
 }
@@ -2584,7 +2585,8 @@ XS(XS__istaskappropriate)
 		quest_manager.popup(SvPV_nolen(ST(0)), SvPV_nolen(ST(1)), popupid, buttons, duration);
 
 		XSRETURN_EMPTY;
- }
+}
+
 XS(XS__clearspawntimers);
 XS(XS__clearspawntimers)
 {
@@ -2596,6 +2598,7 @@ XS(XS__clearspawntimers)
 
 	XSRETURN_EMPTY;
 }
+
 XS(XS__ze);
 XS(XS__ze)
 {
@@ -2625,6 +2628,7 @@ XS(XS__we)
 
 	XSRETURN_EMPTY;
 }
+
 XS(XS__getlevel);
 XS(XS__getlevel)
 {
@@ -3310,6 +3314,62 @@ XS(XS__crosszonemessageplayerbyname)
 	XSRETURN_EMPTY;
 }
 
+XS(XS__enablerecipe);
+XS(XS__enablerecipe)
+{
+	dXSARGS;
+	bool success = false;
+
+	if (items != 1) {
+		Perl_croak(aTHX_ "Usage: enablerecipe(recipe_id)");
+	}
+	else {
+		uint32 recipe_id = (uint32)SvIV(ST(0));
+		success = quest_manager.EnableRecipe(recipe_id);
+	}
+	if (!success) {
+		XSRETURN_NO;
+	}
+
+	XSRETURN_YES;
+}
+
+XS(XS__disablerecipe);
+XS(XS__disablerecipe)
+{
+	dXSARGS;
+	bool success = false;
+
+	if (items != 1) {
+		Perl_croak(aTHX_ "Usage: disablerecipe(recipe_id)");
+	}
+	else {
+		uint32 recipe_id = (uint32)SvIV(ST(0));
+		success = quest_manager.DisableRecipe(recipe_id);
+	}
+	if (!success) {
+		XSRETURN_NO;
+	}
+
+	XSRETURN_YES;
+}
+
+XS(XS__clear_npctype_cache);
+XS(XS__clear_npctype_cache)
+{
+	dXSARGS;
+
+	if (items != 1) {
+		Perl_croak(aTHX_ "Usage: clear_npctype_cache(npc_id)");
+	}
+	else {
+		int32 npctype_id = (int32)SvIV(ST(0));
+		quest_manager.ClearNPCTypeCache(npctype_id);
+	}
+	
+	XSRETURN_EMPTY;
+}
+
 /*
 This is the callback perl will look for to setup the
 quest package's XSUBs
@@ -3528,7 +3588,10 @@ EXTERN_C XS(boot_quest)
 		newXS(strcpy(buf, "crosszonesignalclientbycharid"), XS__crosszonesignalclientbycharid, file);
 		newXS(strcpy(buf, "crosszonesignalclientbyname"), XS__crosszonesignalclientbyname, file);
 		newXS(strcpy(buf, "crosszonemessageplayerbyname"), XS__crosszonemessageplayerbyname, file);
-	XSRETURN_YES;
+		newXS(strcpy(buf, "enablerecipe"), XS__enablerecipe, file);
+		newXS(strcpy(buf, "disablerecipe"), XS__disablerecipe, file);
+		newXS(strcpy(buf, "clear_npctype_cache"), XS__clear_npctype_cache, file);
+		XSRETURN_YES;
 }
 
 #endif

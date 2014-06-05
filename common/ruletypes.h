@@ -97,6 +97,8 @@ RULE_BOOL ( Character, EnableDiscoveredItems, true ) // If enabled, it enables E
 RULE_BOOL ( Character, EnableXTargetting, true) // Enable Extended Targetting Window, for users with UF and later clients.
 RULE_BOOL ( Character, KeepLevelOverMax, false) // Don't delevel a character that has somehow gone over the level cap
 RULE_INT ( Character, FoodLossPerUpdate, 35) // How much food/water you lose per stamina update
+RULE_INT ( Character, BaseInstrumentSoftCap, 36) // Softcap for instrument mods, 36 commonly referred to as "3.6" as well.
+RULE_INT ( Character, BaseRunSpeedCap, 158) // Base Run Speed Cap, on live it's 158% which will give you a runspeed of 1.580 hard capped to 225.
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Mercs )
@@ -133,9 +135,11 @@ RULE_CATEGORY_END()
 RULE_CATEGORY( Pets )
 RULE_REAL( Pets, AttackCommandRange, 150 )
 RULE_BOOL( Pets, UnTargetableSwarmPet, false )
+RULE_BOOL( Pets, SwarmPetNotTargetableWithHotKey, false ) //On SOF+ clients this a semi-hack to make swarm pets not F8 targetable.
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( GM )
+RULE_INT ( GM, MinStatusToSummonItem, 250)
 RULE_INT ( GM, MinStatusToZoneAnywhere, 250 )
 RULE_CATEGORY_END()
 
@@ -194,6 +198,7 @@ RULE_INT ( Zone, ReservedInstances, 30 ) //Will reserve this many instance ids f
 RULE_INT ( Zone, EbonCrystalItemID, 40902)
 RULE_INT ( Zone, RadiantCrystalItemID, 40903)
 RULE_BOOL ( Zone, LevelBasedEXPMods, false) // Allows you to use the level_exp_mods table in consideration to your players EXP hits
+RULE_INT ( Zone, WeatherTimer, 600) // Weather timer when no duration is available
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Map )
@@ -287,13 +292,24 @@ RULE_BOOL ( Spells, NPCIgnoreBaseImmunity, true) // Whether or not NPCs get to i
 RULE_REAL ( Spells, AvgSpellProcsPerMinute, 6.0) //Adjust rate for sympathetic spell procs
 RULE_INT ( Spells, ResistFalloff, 67) //Max that level that will adjust our resist chance based on level modifiers
 RULE_INT ( Spells, CharismaEffectiveness, 10) // Deterimes how much resist modification charisma applies to charm/pacify checks. Default 10 CHA = -1 resist mod.
+RULE_INT ( Spells, CharismaEffectivenessCap, 255) // Deterimes how much resist modification charisma applies to charm/pacify checks. Default 10 CHA = -1 resist mod.
+RULE_BOOL ( Spells, CharismaCharmDuration, false) // Allow CHA resist mod to extend charm duration.
 RULE_INT ( Spells, CharmBreakCheckChance, 25) //Determines chance for a charm break check to occur each buff tick.
 RULE_INT ( Spells, MaxCastTimeReduction, 50) //Max percent your spell cast time can be reduced by spell haste
-RULE_INT ( Spells, RootBreakFromSpells, 20) //Chance for root to break when cast on.
+RULE_INT ( Spells, RootBreakFromSpells, 55) //Chance for root to break when cast on.
 RULE_INT ( Spells, DeathSaveCharismaMod, 3) //Determines how much charisma effects chance of death save firing.
 RULE_INT ( Spells, DivineInterventionHeal, 8000) //Divine intervention heal amount.
 RULE_BOOL ( Spells, AdditiveBonusValues, false) //Allow certain bonuses to be calculated by adding together the value from each item, instead of taking the highest value. (ie Add together all Cleave Effects)
 RULE_BOOL ( Spells, UseCHAScribeHack, false) //ScribeSpells and TrainDiscs quest functions will ignore entries where field 12 is CHA.  What's the best way to do this?
+RULE_BOOL ( Spells, BuffLevelRestrictions, true) //Buffs will not land on low level toons like live
+RULE_INT ( Spells, RootBreakCheckChance, 70) //Determines chance for a root break check to occur each buff tick.
+RULE_INT ( Spells, FearBreakCheckChance, 70) //Determines chance for a fear break check to occur each buff tick.
+RULE_INT ( Spells, SuccorFailChance, 2) //Determines chance for a succor spell not to teleport an invidual player
+RULE_INT ( Spells, FRProjectileItem_Titanium, 1113) // Item id for Titanium clients for Fire 'spell projectile'.
+RULE_INT ( Spells, FRProjectileItem_SOF, 80684) // Item id for SOF clients for Fire 'spell projectile'.
+RULE_INT ( Spells, FRProjectileItem_NPC, 80684) // Item id for NPC Fire 'spell projectile'.
+RULE_BOOL ( Spells, UseLiveSpellProjectileGFX, false) // Use spell projectile graphics set in the spells_new table (player_1). Server must be using UF+ spell file.
+RULE_BOOL ( Spells, FocusCombatProcs, false) //Allow all combat procs to receive focus effects.
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( Combat )
@@ -302,12 +318,15 @@ RULE_INT ( Combat, WarBerBaseCritChance, 3 ) //The base crit chance for warriors
 RULE_INT ( Combat, BerserkBaseCritChance, 6 ) //The bonus base crit chance you get when you're berserk
 RULE_INT ( Combat, NPCBashKickLevel, 6 ) //The level that npcs can KICK/BASH
 RULE_INT ( Combat, NPCBashKickStunChance, 15 ) //Percent chance that a bash/kick will stun
+RULE_INT ( Combat, RogueCritThrowingChance, 25) //Rogue throwing crit bonus
+RULE_INT ( Combat, RogueDeadlyStrikeChance, 80) //Rogue chance throwing from behind crit becomes a deadly strike
+RULE_INT ( Combat, RogueDeadlyStrikeMod, 2) //Deadly strike modifier to crit damage
 RULE_INT ( Combat, ClientBaseCritChance, 0 ) //The base crit chance for all clients, this will stack with warrior's/zerker's crit chance.
 RULE_BOOL ( Combat, UseIntervalAC, true)
 RULE_INT ( Combat, PetAttackMagicLevel, 30)
 RULE_BOOL ( Combat, EnableFearPathing, true)
-RULE_INT ( Combat, FleeHPRatio, 25)
-RULE_INT ( Combat, FleeSnareHPRatio, 11) // HP at which snare will halt movement of a fleeing NPC.
+RULE_REAL ( Combat, FleeMultiplier, 2.0) // Determines how quickly a NPC will slow down while fleeing. Decrease multiplier to slow NPC down quicker.
+RULE_INT ( Combat, FleeHPRatio, 25) //HP % when a NPC begins to flee.
 RULE_BOOL ( Combat, FleeIfNotAlone, false) // If false, mobs won't flee if other mobs are in combat with it.
 RULE_BOOL ( Combat, AdjustProcPerMinute, true)
 RULE_REAL ( Combat, AvgProcsPerMinute, 2.0)
@@ -329,6 +348,8 @@ RULE_REAL ( Combat, ArcheryBaseDamageBonus, 1) // % Modifier to Base Archery Dam
 RULE_REAL ( Combat, ArcheryNPCMultiplier, 1.0) // this is multiplied by the regular dmg to get the archery dmg
 RULE_BOOL ( Combat, AssistNoTargetSelf, true) //when assisting a target that does not have a target: true = target self, false = leave target as was before assist (false = live like)
 RULE_INT ( Combat, MaxRampageTargets, 3) //max number of people hit with rampage
+RULE_INT ( Combat, DefaultRampageTargets, 1) // default number of people to hit with rampage
+RULE_BOOL ( Combat, RampageHitsTarget, false) // rampage will hit the target if it still has targets left
 RULE_INT ( Combat, MaxFlurryHits, 2) //max number of extra hits from flurry
 RULE_INT ( Combat, MonkDamageTableBonus, 5) //% bonus monks get to their damage table calcs
 RULE_INT ( Combat, FlyingKickBonus, 25) //% Modifier that this skill gets to str and skill bonuses
@@ -351,6 +372,14 @@ RULE_REAL ( Combat, LowPlateChainACSoftcapReturn, 0.23)
 RULE_REAL ( Combat, LowChainLeatherACSoftcapReturn, 0.17)
 RULE_REAL ( Combat, CasterACSoftcapReturn, 0.06)
 RULE_REAL ( Combat, MiscACSoftcapReturn, 0.3)
+RULE_BOOL ( Combat, OldACSoftcapRules, false) // use old softcaps
+RULE_BOOL ( Combat, UseOldDamageIntervalRules, false) // use old damage formulas for everything
+RULE_REAL ( Combat, WarACSoftcapReturn, 0.3448) // new AC returns
+RULE_REAL ( Combat, ClrRngMnkBrdACSoftcapReturn, 0.3030)
+RULE_REAL ( Combat, PalShdACSoftcapReturn, 0.3226)
+RULE_REAL ( Combat, DruNecWizEncMagACSoftcapReturn, 0.2000)
+RULE_REAL ( Combat, RogShmBstBerACSoftcapReturn, 0.2500)
+RULE_REAL ( Combat, SoftcapFactor, 1.88)
 RULE_REAL ( Combat, ACthac0Factor, 0.55)
 RULE_REAL ( Combat, ACthac20Factor, 0.55)
 RULE_INT ( Combat, HitCapPre20, 40) // live has it capped at 40 for whatever dumb reason... this is mainly for custom servers
@@ -368,6 +397,9 @@ RULE_INT ( Combat, ClientStunLevel, 55) //This is the level where client kicks a
 RULE_INT ( Combat, QuiverWRHasteDiv, 3) //Weight Reduction is divided by this to get haste contribution for quivers
 RULE_BOOL ( Combat, UseArcheryBonusRoll, false) //Make the 51+ archery bonus require an actual roll
 RULE_INT ( Combat, ArcheryBonusChance, 50)
+RULE_INT ( Combat, BerserkerFrenzyStart, 35)
+RULE_INT ( Combat, BerserkerFrenzyEnd, 45)
+RULE_BOOL ( Combat, OneProcPerWeapon, true) //If enabled, One proc per weapon per round
 RULE_CATEGORY_END()
 
 RULE_CATEGORY( NPC )
@@ -422,6 +454,8 @@ RULE_BOOL ( Bots, BotGroupBuffing, false ) // Bots will cast single target buffs
 RULE_BOOL ( Bots, BotSpellQuest, false ) // Anita Thrall's (Anita_Thrall.pl) Bot Spell Scriber quests.
 RULE_INT ( Bots, BotAAExpansion, 8 ) // Bots get AAs through this expansion
 RULE_BOOL ( Bots, BotGroupXP, false ) // Determines whether client gets xp for bots outside their group.
+RULE_BOOL ( Bots, BotBardUseOutOfCombatSongs, true) // Determines whether bard bots use additional out of combat songs.
+RULE_BOOL ( Bots, BotLevelsWithOwner, false) // Auto-updates spawned bots as owner levels/de-levels (false is original behavior)
 RULE_CATEGORY_END()
 #endif
 
@@ -431,6 +465,7 @@ RULE_BOOL ( Chat, ServerWideAuction, true)
 RULE_BOOL ( Chat, EnableVoiceMacros, true)
 RULE_BOOL ( Chat, EnableMailKeyIPVerification, true)
 RULE_BOOL ( Chat, EnableAntiSpam, true)
+RULE_BOOL ( Chat, SuppressCommandErrors, false) // Do not suppress by default
 RULE_INT ( Chat, MinStatusToBypassAntiSpam, 100)
 RULE_INT ( Chat, MinimumMessagesPerInterval, 4)
 RULE_INT ( Chat, MaximumMessagesPerInterval, 12)
@@ -449,6 +484,8 @@ RULE_INT ( Merchant, PriceBonusPct, 4) // Determines maximum price bonus from ha
 RULE_INT ( Merchant, PricePenaltyPct, 4) // Determines maximum price penalty from having bad faction/CHA. Value is a percent.
 RULE_REAL( Merchant, ChaBonusMod, 3.45) // Determines CHA cap, from 104 CHA. 3.45 is 132 CHA at apprehensive. 0.34 is 400 CHA at apprehensive.
 RULE_REAL ( Merchant, ChaPenaltyMod, 1.52) // Determines CHA bottom, up to 102 CHA. 1.52 is 37 CHA at apprehensive. 0.98 is 0 CHA at apprehensive.
+RULE_BOOL ( Merchant, EnableAltCurrencySell, true) // Enables the ability to resell items to alternate currency merchants
+
 RULE_CATEGORY_END()
 
 RULE_CATEGORY ( Bazaar )
@@ -510,6 +547,12 @@ RULE_BOOL( QueryServ, PlayerLogDeletes, false) // Logs Player Deletes
 RULE_BOOL( QueryServ, PlayerLogMoves, false) // Logs Player Moves
 RULE_BOOL( QueryServ, MerchantLogTransactions, false) // Logs Merchant Transactions
 RULE_BOOL( QueryServ, PlayerLogPCCoordinates, false) // Logs Player Coordinates with certain events
+RULE_CATEGORY_END()
+
+RULE_CATEGORY( Inventory )
+RULE_BOOL ( Inventory, EnforceAugmentRestriction, true) // Forces augment slot restrictions
+RULE_BOOL ( Inventory, EnforceAugmentUsability, true) // Forces augmented item usability
+RULE_BOOL ( Inventory, EnforceAugmentWear, true) // Forces augment wear slot validation
 RULE_CATEGORY_END()
 
 #undef RULE_CATEGORY

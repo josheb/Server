@@ -71,7 +71,6 @@ ThreadReturnType BaseTCPServer::TCPServerLoop(void* tmp) {
 
 	tcps->MLoopRunning.lock();
 	while (tcps->RunLoop()) {
-		_CP(BaseTCPServerLoop);
 		Sleep(SERVER_LOOP_GRANULARITY);
 		tcps->Process();
 	}
@@ -98,8 +97,12 @@ void BaseTCPServer::ListenNewConnections() {
 	from.sin_family = AF_INET;
 	fromlen = sizeof(from);
 	LockMutex lock(&MSock);
+#ifndef DARWIN // Corysia - On OSX, 0 is a valid fd.
 	if (!sock)
 		return;
+#else
+	if (sock == -1) return;
+#endif
 
 	// Check for pending connects
 #ifdef _WINDOWS

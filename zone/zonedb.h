@@ -30,6 +30,17 @@ struct DBnpcspells_entries_Struct {
 };
 #pragma pack()
 
+#pragma pack(1)
+struct DBnpcspellseffects_entries_Struct {
+	int16	spelleffectid;
+	uint8	minlevel;
+	uint8	maxlevel;
+	int32	base;
+	int32	limit;
+	int32	max;
+};
+#pragma pack()
+
 struct DBnpcspells_Struct {
 	uint32	parent_list;
 	int16	attack_proc;
@@ -38,8 +49,14 @@ struct DBnpcspells_Struct {
 	DBnpcspells_entries_Struct entries[0];
 };
 
+struct DBnpcspellseffects_Struct {
+	uint32	parent_list;
+	uint32	numentries;
+	DBnpcspellseffects_entries_Struct entries[0];
+};
+
 struct DBTradeskillRecipe_Struct {
-	SkillType tradeskill;
+	SkillUseTypes tradeskill;
 	int16 skill_needed;
 	uint16 trivial;
 	bool nofail;
@@ -71,6 +88,7 @@ struct PetInfo {
 	int16	petpower;
 	uint32	HP;
 	uint32	Mana;
+	float	size;
 	SpellBuff_Struct	Buffs[BUFF_COUNT];
 	uint32	Items[MAX_WORN_INVENTORY];
 	char	Name[64];
@@ -217,7 +235,7 @@ public:
 	bool	GetAccountInfoForLogin(uint32 account_id, int16* admin = 0, char* account_name = 0,
 				uint32* lsaccountid = 0, uint8* gmspeed = 0, bool* revoked = 0, bool* gmhideme = 0);
 	bool	GetAccountInfoForLogin_result(MYSQL_RES* result, int16* admin = 0, char* account_name = 0,
-				uint32* lsaccountid = 0, uint8* gmspeed = 0, bool* revoked = 0, bool* gmhideme = false,
+				uint32* lsaccountid = 0, uint8* gmspeed = 0, bool* revoked = 0, bool* gmhideme = nullptr,
 				uint32* account_creation = 0);
 	bool	GetCharacterInfoForLogin_result(MYSQL_RES* result, uint32* character_id = 0, char* current_zone = 0,
 				PlayerProfile_Struct* pp = 0, Inventory* inv = 0, ExtendedProfile_Struct *ext = 0, uint32* pplen = 0,
@@ -295,7 +313,7 @@ public:
 	/*
 	* Zone related
 	*/
-	bool	GetZoneCFG(uint32 zoneid, uint16 instance_id, NewZone_Struct *data, bool &can_bind, bool &can_combat, bool &can_levitate, bool &can_castoutdoor, bool &is_city, bool &is_hotzone, bool &allow_mercs, int &ruleset, char **map_filename);
+	bool	GetZoneCFG(uint32 zoneid, uint16 instance_id, NewZone_Struct *data, bool &can_bind, bool &can_combat, bool &can_levitate, bool &can_castoutdoor, bool &is_city, bool &is_hotzone, bool &allow_mercs, uint8 &zone_type, int &ruleset, char **map_filename);
 	bool	SaveZoneCFG(uint32 zoneid, uint16 instance_id, NewZone_Struct* zd);
 	bool	LoadStaticZonePoints(LinkedList<ZonePoint*>* zone_point_list,const char* zonename, uint32 version);
 	bool	UpdateZoneSafeCoords(const char* zonename, float x, float y, float z);
@@ -344,7 +362,9 @@ public:
 	void	AddLootTableToNPC(NPC* npc,uint32 loottable_id, ItemList* itemlist, uint32* copper, uint32* silver, uint32* gold, uint32* plat);
 	void	AddLootDropToNPC(NPC* npc,uint32 lootdrop_id, ItemList* itemlist, uint8 droplimit, uint8 mindrop);
 	uint32	GetMaxNPCSpellsID();
+	uint32	GetMaxNPCSpellsEffectsID();
 	DBnpcspells_Struct* GetNPCSpells(uint32 iDBSpellsID);
+	DBnpcspellseffects_Struct* GetNPCSpellsEffects(uint32 iDBSpellsEffectsID);
 
 	/*
 	* Mercs
@@ -382,9 +402,11 @@ public:
 	*/
 	bool	GetTradeRecipe(const ItemInst* container, uint8 c_type, uint32 some_id, uint32 char_id, DBTradeskillRecipe_Struct *spec);
 	bool	GetTradeRecipe(uint32 recipe_id, uint8 c_type, uint32 some_id, uint32 char_id, DBTradeskillRecipe_Struct *spec);
-	uint32	GetZoneForage(uint32 ZoneID, uint8 skill); /* for foraging - BoB */
+	uint32	GetZoneForage(uint32 ZoneID, uint8 skill); /* for foraging */
 	uint32	GetZoneFishing(uint32 ZoneID, uint8 skill, uint32 &npc_id, uint8 &npc_chance);
 	void	UpdateRecipeMadecount(uint32 recipe_id, uint32 char_id, uint32 madecount);
+	bool    EnableRecipe(uint32 recipe_id);
+	bool    DisableRecipe(uint32 recipe_id);
 
 	/*
 	* Tribute
@@ -425,11 +447,6 @@ public:
 	uint32	GetZoneTZ(uint32 zoneid, uint32 version);
 	bool	SetZoneTZ(uint32 zoneid, uint32 version, uint32 tz);
 
-	/*
-	* Weather
-	*/
-	uint8	GetZoneWeather(uint32 zoneid, uint32 version);
-	bool	SetZoneWeather(uint32 zoneid, uint32 version, uint8 w);
 	/*
 	* Group
 	*/
@@ -477,8 +494,11 @@ protected:
 	uint32				max_faction;
 	Faction**			faction_array;
 	uint32 npc_spells_maxid;
+	uint32 npc_spellseffects_maxid;
 	DBnpcspells_Struct** npc_spells_cache;
 	bool*				npc_spells_loadtried;
+	DBnpcspellseffects_Struct** npc_spellseffects_cache;
+	bool*				npc_spellseffects_loadtried;
 	uint8 door_isopen_array[255];
 };
 

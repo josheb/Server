@@ -28,7 +28,7 @@
 #include "entity.h"
 #include "masterentity.h"
 #include "npc.h"
-#include "watermap.h"
+#include "water_map.h"
 #include "titles.h"
 #include "StringIDs.h"
 #include "../common/MiscFunctions.h"
@@ -56,27 +56,27 @@ very low chance of dropping.
 
 Schema:
 CREATE TABLE forage (
-  id int(11) NOT nullptr auto_increment,
-  zoneid int(4) NOT nullptr default '0',
-  Itemid int(11) NOT nullptr default '0',
-  level smallint(6) NOT nullptr default '0',
-  chance smallint(6) NOT nullptr default '0',
+  id int(11) NOT NULL auto_increment,
+  zoneid int(4) NOT NULL default '0',
+  Itemid int(11) NOT NULL default '0',
+  level smallint(6) NOT NULL default '0',
+  chance smallint(6) NOT NULL default '0',
   PRIMARY KEY  (id)
 ) TYPE=MyISAM;
 
 old table upgrade:
-alter table forage add chance smallint(6) NOT nullptr default '0';
+alter table forage add chance smallint(6) NOT NULL default '0';
 update forage set chance=100;
 
 
 CREATE TABLE fishing (
-  id int(11) NOT nullptr auto_increment,
-  zoneid int(4) NOT nullptr default '0',
-  Itemid int(11) NOT nullptr default '0',
-  skill_level smallint(6) NOT nullptr default '0',
-  chance smallint(6) NOT nullptr default '0',
-  npc_id int NOT nullptr default 0,
-  npc_chance int NOT nullptr default 0,
+  id int(11) NOT NULL auto_increment,
+  zoneid int(4) NOT NULL default '0',
+  Itemid int(11) NOT NULL default '0',
+  skill_level smallint(6) NOT NULL default '0',
+  chance smallint(6) NOT NULL default '0',
+  npc_id int NOT NULL default 0,
+  npc_chance int NOT NULL default 0,
   PRIMARY KEY  (id)
 ) TYPE=MyISAM;
 
@@ -225,7 +225,7 @@ bool Client::CanFish() {
 		return false;
 	}
 
-	if(zone->zonemap!=nullptr && zone->watermap != nullptr && RuleB(Watermap, CheckForWaterWhenFishing)) {
+	if(zone->zonemap != nullptr && zone->watermap != nullptr && RuleB(Watermap, CheckForWaterWhenFishing)) {
 		float RodX, RodY, RodZ;
 		// Tweak Rod and LineLength if required
 		const float RodLength = RuleR(Watermap, FishingRodLength);
@@ -240,24 +240,22 @@ bool Client::CanFish() {
 
 		// Do BestZ to find where the line hanging from the rod intersects the water (if it is water).
 		// and go 1 unit into the water.
-		VERTEX dest;
+		Map::Vertex dest;
 		dest.x = RodX;
 		dest.y = RodY;
 		dest.z = z_pos+10;
-		NodeRef n = zone->zonemap->SeekNode( zone->zonemap->GetRoot(), dest.x, dest.y);
-		if(n != NODE_NONE) {
-			RodZ = zone->zonemap->FindBestZ(n, dest, nullptr, nullptr) - 1;
-			bool in_lava = zone->watermap->InLava(RodX, RodY, RodZ);
-			bool in_water = zone->watermap->InWater(RodX, RodY, RodZ) || zone->watermap->InVWater(RodX, RodY, RodZ);
-			//Message(0, "Rod is at %4.3f, %4.3f, %4.3f, InWater says %d, InLava says %d", RodX, RodY, RodZ, in_water, in_lava);
-			if (in_lava) {
-				Message_StringID(MT_Skills, FISHING_LAVA);	//Trying to catch a fire elemental or something?
-				return false;
-			}
-			if((!in_water) || (z_pos-RodZ)>LineLength) {	//Didn't hit the water OR the water is too far below us
-				Message_StringID(MT_Skills, FISHING_LAND);	//Trying to catch land sharks perhaps?
-				return false;
-			}
+
+		RodZ = zone->zonemap->FindBestZ(dest, nullptr) - 1;
+		bool in_lava = zone->watermap->InLava(RodX, RodY, RodZ);
+		bool in_water = zone->watermap->InWater(RodX, RodY, RodZ) || zone->watermap->InVWater(RodX, RodY, RodZ);
+		//Message(0, "Rod is at %4.3f, %4.3f, %4.3f, InWater says %d, InLava says %d", RodX, RodY, RodZ, in_water, in_lava);
+		if (in_lava) {
+			Message_StringID(MT_Skills, FISHING_LAVA);	//Trying to catch a fire elemental or something?
+			return false;
+		}
+		if((!in_water) || (z_pos-RodZ)>LineLength) {	//Didn't hit the water OR the water is too far below us
+			Message_StringID(MT_Skills, FISHING_LAND);	//Trying to catch land sharks perhaps?
+			return false;
 		}
 	}
 	return true;
@@ -294,7 +292,7 @@ void Client::GoFish()
 
 	//success formula is not researched at all
 
-	int fishing_skill = GetSkill(FISHING);	//will take into account skill bonuses on pole & bait
+	int fishing_skill = GetSkill(SkillFishing);	//will take into account skill bonuses on pole & bait
 
 	//make sure we still have a fishing pole on:
 	int32 bslot = m_inv.HasItemByUse(ItemTypeFishingBait, 1, invWhereWorn|invWherePersonal);
@@ -303,7 +301,7 @@ void Client::GoFish()
 		Bait = m_inv.GetItem(bslot);
 
 	//if the bait isnt equipped, need to add its skill bonus
-	if(bslot >= IDX_INV && Bait->GetItem()->SkillModType == FISHING) {
+	if(bslot >= IDX_INV && Bait->GetItem()->SkillModType == SkillFishing) {
 		fishing_skill += Bait->GetItem()->SkillModValue;
 	}
 
@@ -398,16 +396,16 @@ void Client::GoFish()
 		DeleteItemInInventory(13,0,true);
 	}
 
-	if(CheckIncreaseSkill(FISHING, nullptr, 5))
+	if(CheckIncreaseSkill(SkillFishing, nullptr, 5))
 	{
-		if(title_manager.IsNewTradeSkillTitleAvailable(FISHING, GetRawSkill(FISHING)))
+		if(title_manager.IsNewTradeSkillTitleAvailable(SkillFishing, GetRawSkill(SkillFishing)))
 			NotifyNewTitlesAvailable();
 	}
 }
 
 void Client::ForageItem(bool guarantee) {
 
-	int skill_level = GetSkill(FORAGE);
+	int skill_level = GetSkill(SkillForage);
 
 	//be wary of the string ids in switch below when changing this.
 	uint32 common_food_ids[MAX_COMMON_FOOD_IDS] = {
@@ -498,7 +496,7 @@ void Client::ForageItem(bool guarantee) {
 		parse->EventPlayer(EVENT_FORAGE_FAILURE, this, "", 0);
 	}
 
-	CheckIncreaseSkill(FORAGE, nullptr, 5);
+	CheckIncreaseSkill(SkillForage, nullptr, 5);
 
 }
 
